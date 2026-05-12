@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebFetch(domain:gsaluncf.github.io)",
-      "Bash(py -c \"import ast; ast.parse\\(open\\('jobs/train_model.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
-      "Bash(py -c \"import ast; ast.parse\\(open\\('app/api_app.py'\\).read\\(\\)\\); print\\('OK'\\)\")"
-    ]
-  }
-}
