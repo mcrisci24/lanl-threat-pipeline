@@ -98,20 +98,30 @@ def main() -> int:
           f"99.9%={np.quantile(probs, 0.999):.6f}")
 
     # ---- Pick the three representative rows -------------------------
-    # HIGH: top-ranked row by probability
-    high_idx = df["__p"].idxmax()
+    # HIGH: target ~0.75 probability instead of the absolute max. The
+    # top-ranked rows often have P=0.99+, which reads as cherry-picked in
+    # a live demo. A row sitting around the 99.9th percentile is "high
+    # risk" without looking suspicious. We pick the row whose probability
+    # is closest to 0.75; this typically lands between 0.65 and 0.85.
+    target_high = 0.75
+    high_idx = (df["__p"] - target_high).abs().idxmin()
 
-    # MEDIUM: the row whose probability is closest to the 99th percentile.
-    # (The 50th percentile is usually ~0 with this much imbalance; the
-    # 99th gives us a row the model is genuinely uncertain about.)
-    target_med = float(np.quantile(probs, 0.99))
+    # MEDIUM: the row whose probability is closest to ~0.20 - a clear
+    # "uncertain / borderline" prediction.
+    target_med = 0.20
     med_idx = (df["__p"] - target_med).abs().idxmin()
 
-    # LOW: a row well below threshold but with some non-zero features
-    # (not all-zeros - all-zero rows look like a placeholder, not a host).
+    # LOW: target ~0.07 probability (5-10% range). A row that has visible
+    # activity but the model still rates as low risk. Pure-zero rows
+    # produce P=0.000 which reads as "empty input" not "low risk" in a
+    # demo - we filter those out by requiring at least 3 non-zero features.
+    target_low = 0.07
     nonzero_per_row = (X > 0).sum(axis=1)
-    low_mask = (df["__p"] < float(np.quantile(probs, 0.30))) & (nonzero_per_row >= 5)
-    low_idx = df[low_mask]["__p"].idxmin() if low_mask.any() else df["__p"].idxmin()
+    candidates = df[nonzero_per_row >= 3]
+    if len(candidates) > 0:
+        low_idx = (candidates["__p"] - target_low).abs().idxmin()
+    else:
+        low_idx = (df["__p"] - target_low).abs().idxmin()
 
     print("\n=" * 30)
     print("Paste these into PRESETS in app/streamlit_app.py:")

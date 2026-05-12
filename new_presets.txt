@@ -1,0 +1,128 @@
+Loading model: lightgbm_model
+Gold sample shape: (27344, 49)
+Scoring all rows...
+Probability distribution: min=0.000000 mean=0.033004 max=0.990124
+Quantiles: 50%=0.000030  90%=0.231051  99%=0.231051  99.9%=0.798708
+
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+Paste these into PRESETS in app/streamlit_app.py:
+============================================================
+PRESETS_REAL: dict[str, dict[str, float]] = {
+    "Demo HIGH risk (real row)  (P=0.745)": {
+        "auth_src_event_count": 4,
+        "auth_src_success_count": 4,
+        "auth_src_unique_dst_computers": 1,
+        "auth_src_unique_dst_users": 1,
+        "flows_out_count": 12,
+        "flows_out_unique_dst_computers": 2,
+        "flows_out_unique_dst_ports": 2,
+        "flows_out_total_duration": 109,
+        "flows_out_total_packets": 36,
+        "flows_out_total_bytes": 1824,
+        "flows_out_mean_packets": 3,
+        "flows_out_mean_bytes": 152,
+        "auth_total_events": 4,
+        "auth_total_successes": 4,
+        "flows_total_events": 12,
+        "flows_total_bytes": 1824,
+        "flows_total_packets": 36,
+        "flows_bytes_per_event": 152,
+        "flows_packets_per_event": 3,
+    },
+    "Demo MEDIUM risk (real row)  (P=0.171)": {
+        "auth_src_event_count": 1,
+        "auth_src_success_count": 1,
+        "auth_src_unique_dst_computers": 1,
+        "auth_src_unique_dst_users": 1,
+        "flows_out_count": 22,
+        "flows_out_unique_dst_computers": 1,
+        "flows_out_unique_dst_ports": 1,
+        "flows_out_total_packets": 22,
+        "flows_out_total_bytes": 1012,
+        "flows_out_mean_packets": 1,
+        "flows_out_mean_bytes": 46,
+        "auth_total_events": 1,
+        "auth_total_successes": 1,
+        "flows_total_events": 22,
+        "flows_total_bytes": 1012,
+        "flows_total_packets": 22,
+        "flows_bytes_per_event": 46,
+        "flows_packets_per_event": 1,
+    },
+    "Demo LOW risk (real row)  (P=0.072)": {
+        "auth_src_event_count": 7,
+        "auth_src_success_count": 7,
+        "auth_src_unique_dst_computers": 3,
+        "auth_src_unique_dst_users": 1,
+        "proc_event_count": 10,
+        "proc_start_count": 10,
+        "proc_unique_users": 1,
+        "proc_unique_processes": 6,
+        "proc_start_end_imbalance": 10,
+        "auth_total_events": 7,
+        "auth_total_successes": 7,
+    },
+}
+
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+=
+  HIGH row idx=11078  P=0.7446
+  MED  row idx=22807   P=0.1707
+  LOW  row idx=22852   P=0.0719
