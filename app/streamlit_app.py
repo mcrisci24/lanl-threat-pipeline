@@ -807,16 +807,28 @@ with tab_predict:
                         contribs = exp.get("contributions", [])
                         method = exp.get("method", "")
 
-                        if method == "linear_log_odds_decomposition" and contribs:
+                        SUPPORTED_METHODS = {
+                            "linear_log_odds_decomposition",
+                            "xgboost_treeshap",
+                            "lightgbm_treeshap",
+                        }
+                        if method in SUPPORTED_METHODS and contribs:
                             st.markdown("---")
                             st.subheader("Why this prediction?")
+                            method_blurb = {
+                                "linear_log_odds_decomposition":
+                                    "exact `coefficient x scaled_input` from the linear model",
+                                "xgboost_treeshap":
+                                    "exact TreeSHAP via `booster.predict(pred_contribs=True)`",
+                                "lightgbm_treeshap":
+                                    "exact TreeSHAP via `booster.predict(pred_contrib=True)`",
+                            }.get(method, "")
                             st.caption(
                                 "Each feature's exact contribution to the model's "
                                 "log-odds for next-window red-team activity. "
                                 "**Red bars push risk UP** (toward compromised); "
                                 "**green bars push risk DOWN** (toward benign). "
-                                "Magnitudes are the literal `coefficient x scaled_input` "
-                                "from the trained model - not a SHAP approximation."
+                                f"Source: {method_blurb}."
                             )
 
                             top = contribs[:12]
