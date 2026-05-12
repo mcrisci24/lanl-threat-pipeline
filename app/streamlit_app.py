@@ -503,6 +503,64 @@ def categorize(feat: str) -> str:
 # and see a meaningful prediction, rather than typing 40 zeros into a form.
 # These presets are illustrative, NOT real attack data.
 PRESETS: dict[str, dict[str, float]] = {
+    # =================================================================
+    # DEMO PRESETS — sourced from REAL rows in the gold table that the
+    # served model rates at HIGH / MEDIUM / LOW risk. Use these during
+    # the live presentation to show the model actually discriminating
+    # across risk levels. The "synthetic" presets below them (failed-
+    # logon storm, lateral movement, etc.) were calibrated for the LR
+    # baseline and are kept for historical comparison.
+    # =================================================================
+    "Demo HIGH risk - stealthy low-volume (real row, P=0.990)": {
+        "auth_src_event_count": 1,
+        "auth_src_success_count": 1,
+        "auth_src_unique_dst_computers": 1,
+        "auth_src_unique_dst_users": 1,
+        "flows_out_count": 6,
+        "flows_out_unique_dst_computers": 2,
+        "flows_out_unique_dst_ports": 2,
+        "flows_out_total_duration": 54,
+        "flows_out_total_packets": 18,
+        "flows_out_total_bytes": 912,
+        "flows_out_mean_packets": 3,
+        "flows_out_mean_bytes": 152,
+        "auth_total_events": 1,
+        "auth_total_successes": 1,
+        "flows_total_events": 6,
+        "flows_total_bytes": 912,
+        "flows_total_packets": 18,
+        "flows_bytes_per_event": 152,
+        "flows_packets_per_event": 3,
+    },
+    "Demo MEDIUM risk - sparse DNS (real row, P=0.231)": {
+        "dns_lookup_count": 1,
+        "dns_unique_resolved_computers": 1,
+    },
+    "Demo LOW risk - busy admin host (real row, P=0.000)": {
+        "auth_src_event_count": 35,
+        "auth_src_success_count": 12,
+        "auth_src_failure_count": 23,
+        "auth_src_unique_dst_computers": 4,
+        "auth_src_unique_dst_users": 3,
+        "auth_dst_event_count": 29,
+        "auth_dst_success_count": 6,
+        "auth_dst_failure_count": 23,
+        "auth_dst_unique_src_computers": 1,
+        "auth_dst_unique_src_users": 2,
+        "dns_lookup_count": 2,
+        "dns_unique_resolved_computers": 2,
+        "proc_event_count": 324,
+        "proc_start_count": 161,
+        "proc_end_count": 163,
+        "proc_unique_users": 2,
+        "proc_unique_processes": 5,
+        "proc_start_end_imbalance": -2,
+        "auth_total_events": 64,
+        "auth_total_failures": 46,
+        "auth_total_successes": 18,
+        "auth_failure_ratio": 0.71875,
+    },
+    # ----- Historical / synthetic presets (calibrated for LR) ---------
     "Quiet workstation": {
         "auth_total_events": 8, "auth_total_failures": 0, "auth_total_successes": 8,
         "flows_total_events": 15, "flows_total_bytes": 4_200, "flows_total_packets": 60,
