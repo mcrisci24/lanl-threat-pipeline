@@ -37,8 +37,17 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
+
+# Streamlit Cloud (and `streamlit run app/streamlit_app.py` in general) only
+# puts the script's own directory on sys.path - NOT the repo root. So a bare
+# `from config.settings import settings` fails with ModuleNotFoundError unless
+# we explicitly add the repo root first.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 import pandas as pd
 import requests
