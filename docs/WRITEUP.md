@@ -1,6 +1,6 @@
 # LANL Threat Prediction Pipeline — Project 2 Write-Up
 
-**Team:** _(names here)_   **Live URL:** _(deployed Streamlit URL here)_   **Repo:** _(GitHub URL here)_
+**Team:** Mark Crisci   **Live URL:** https://lanlthreat.streamlit.app   **Repo:** https://github.com/mcrisci24/lanl-threat-pipeline
 
 ## 1. Prediction question
 Given a single computer's behavior in the **current** event-time window (authentication, network flows, DNS, process events), will the same computer show **red-team activity in the next window**? The label is built with a Spark window function that shifts the red-team flag forward by one window, and every current-window red-team feature is explicitly removed from the feature set so the model cannot peek at the answer.

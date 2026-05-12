@@ -1,10 +1,10 @@
 # LANL Threat Prediction Pipeline
 
 **Course:** Distributed Computing for Data Science (Project 2)
-**Team:** _(add team member names here before submission)_
-**Live application URL:** _(paste your deployed Streamlit URL here before grading)_
-**API endpoint:**         _(paste your FastAPI URL here, e.g. `http://<ec2-host>:8000`)_
-**Smoke test:**           `python test_project.py --url <your_api_url>`
+**Team:** Mark Crisci
+**Live application URL:** https://lanlthreat.streamlit.app
+**API endpoint:**         http://98.94.30.68:8000
+**Smoke test:**           `python test_project.py --url http://98.94.30.68:8000`
 **One-page write-up:**    [`WRITEUP.pdf`](WRITEUP.pdf) (rebuild with `python scripts/generate_writeup_pdf.py`)
 **Deploy guide:**         [`deploy/README.md`](deploy/README.md)
 
