@@ -383,6 +383,20 @@ with tab_predict:
             preset_values = PRESETS.get(preset_choice, {})
             st.info(f"Preset loaded: **{preset_choice}**. Edit any field below to refine.")
 
+        # Streamlit gotcha: `st.number_input(value=..., key=...)` only honors
+        # the `value=` on FIRST render. After that the widget reads from
+        # st.session_state[key]. So a preset-dropdown change re-runs the
+        # script but does NOT update the form. Fix it by writing the preset
+        # values directly to session_state whenever the dropdown changes.
+        _last_preset_key = "__last_preset"
+        if _last_preset_key not in st.session_state:
+            st.session_state[_last_preset_key] = "(choose...)"
+
+        if preset_choice != st.session_state[_last_preset_key]:
+            for _f in feature_names:
+                st.session_state[f"input_{_f}"] = float(preset_values.get(_f, 0.0))
+            st.session_state[_last_preset_key] = preset_choice
+
         # Group features by source
         grouped: dict[str, list[str]] = {}
         for feat in feature_names:
@@ -500,6 +514,179 @@ with tab_predict:
                     }
                 ).set_index("Outcome")
                 st.bar_chart(chart_df, height=180)
+
+                # ---- WHY: per-feature contribution (explainable AI) ----
+                # Call /explain to decompose the prediction. For the linear
+                # baseline model, contribution = scaled_value * coefficient
+                # for each feature - the EXACT log-odds decomposition, not
+                # a SHAP approximation.
+                try:
+                    exp_response = requests.post(
+                        f"{API_URL}/explain",
+                        json={"features": inputs},
+                        timeout=30,
+                    )
+                    if exp_response.status_code == 200:
+                        exp = exp_response.json()
+                        contribs = exp.get("contributions", [])
+                        method = exp.get("method", "")
+
+                        if method == "linear_log_odds_decomposition" and contribs:
+                            st.markdown("---")
+                            st.subheader("Why this prediction?")
+                            st.caption(
+                                "Each feature's exact contribution to the model's "
+                                "log-odds for next-window red-team activity. "
+                                "**Red bars push risk UP** (toward compromised); "
+                                "**green bars push risk DOWN** (toward benign). "
+                                "Magnitudes are the literal `coefficient x scaled_input` "
+                                "from the trained model - not a SHAP approximation."
+                            )
+
+                            top = contribs[:12]
+                            exp_df = pd.DataFrame(top).sort_values(
+                                "contribution", ascending=True
+                            )
+                            colors = [
+                                "#ef4444" if c > 0 else "#10b981"
+                                for c in exp_df["contribution"]
+                            ]
+
+                            if _PLOTLY_OK:
+                                fig_exp = go.Figure(
+                                    go.Bar(
+                                        x=exp_df["contribution"],
+                                        y=exp_df["feature"],
+                                        orientation="h",
+                                        marker_color=colors,
+                                        text=[
+                                            f"raw={r:.2f}"
+                                            for r in exp_df["raw_value"]
+                                        ],
+                                        textposition="outside",
+                                        hovertemplate=(
+                                            "<b>%{y}</b><br>"
+                                            "Contribution: %{x:+.4f}<br>"
+                                            "<extra></extra>"
+                                        ),
+                                    )
+                                )
+                                fig_exp.update_layout(
+                                    height=480,
+                                    margin=dict(l=10, r=10, t=20, b=40),
+                                    xaxis_title="Contribution to log-odds  "
+                                                "(negative = lowers risk, positive = raises risk)",
+                                    yaxis_title="",
+                                    showlegend=False,
+                                )
+                                fig_exp.add_vline(
+                                    x=0, line_width=1.5,
+                                    line_dash="dash", line_color="gray",
+                                )
+                                st.plotly_chart(fig_exp, use_container_width=True)
+                            else:
+                                # Plotly fallback - simple bar chart
+                                st.bar_chart(
+                                    exp_df.set_index("feature")["contribution"],
+                                    height=400,
+                                )
+
+                            # Plain-language summary of the top driver
+                            top_driver = contribs[0]
+                            direction = "raised" if top_driver["contribution"] > 0 else "lowered"
+                            st.markdown(
+                                f"**Top driver:** `{top_driver['feature']}` "
+                                f"(raw value `{top_driver['raw_value']:.2f}`) "
+                                f"**{direction}** the predicted risk by "
+                                f"`{abs(top_driver['contribution']):.4f}` log-odds."
+                            )
+                        elif method == "unsupported":
+                            st.caption(
+                                "Per-prediction decomposition requires a linear "
+                                "model; the served model is non-linear. See the "
+                                "Model metrics tab for global feature importance."
+                            )
+                except requests.RequestException:
+                    pass  # explainer is a nice-to-have; never block the predict flow
+
+                # ---- HOW TO LOWER: counterfactual recommender --------
+                # /explain tells you WHY a prediction was high.
+                # /counterfactual tells you WHAT TO CHANGE to bring it down.
+                # For each top feature, it returns the SMALLEST raw-value
+                # change (alone) that would push the predicted probability
+                # below a chosen target. Exact mathematical inverse of the
+                # linear model - not an approximation.
+                try:
+                    cf_target = 0.20  # target: "low risk" band
+                    cf_response = requests.post(
+                        f"{API_URL}/counterfactual",
+                        json={"features": inputs, "target_probability": cf_target},
+                        timeout=30,
+                    )
+                    if cf_response.status_code == 200:
+                        cf = cf_response.json()
+                        method_cf = cf.get("method", "")
+                        cf_list = cf.get("interventions", [])
+                        cf_note = cf.get("note", "")
+
+                        if method_cf == "linear_counterfactual" and cf_list:
+                            st.markdown("---")
+                            st.subheader("How to lower this risk")
+                            cur_p = cf.get("current_probability", 0.0)
+                            tgt_p = cf.get("target_probability", cf_target)
+                            st.caption(
+                                f"Smallest single-feature interventions that would "
+                                f"bring predicted risk from **{cur_p:.1%}** down "
+                                f"below **{tgt_p:.0%}**. These are the exact "
+                                f"mathematical inverses of the linear model - not "
+                                f"approximations. In practice, an analyst would "
+                                f"combine several of these for robust mitigation."
+                            )
+
+                            if not cf.get("all_feasible", True):
+                                st.warning(
+                                    "No single-feature change alone is "
+                                    "physically feasible (would require negative "
+                                    "values). The interventions below show the "
+                                    "minimum-magnitude changes; combined "
+                                    "interventions are needed in practice."
+                                )
+
+                            top5 = cf_list[:5]
+                            display_rows = []
+                            for c in top5:
+                                arrow = "↓" if c["direction"] == "decrease" else "↑"
+                                display_rows.append({
+                                    "Feature": c["feature"],
+                                    "Current": f"{c['current_raw']:.2f}",
+                                    "Target": f"{c['suggested_raw']:.2f}",
+                                    "Change": f"{arrow} {c['direction']} by {abs(c['delta_raw']):.2f}",
+                                })
+                            st.dataframe(
+                                pd.DataFrame(display_rows),
+                                use_container_width=True,
+                                hide_index=True,
+                            )
+
+                            top_cf = cf_list[0]
+                            arrow = "down" if top_cf["direction"] == "decrease" else "up"
+                            st.markdown(
+                                f"**Smallest single intervention:** Bring "
+                                f"`{top_cf['feature']}` from "
+                                f"`{top_cf['current_raw']:.2f}` "
+                                f"{arrow} to `{top_cf['suggested_raw']:.2f}` "
+                                f"(change of `{abs(top_cf['delta_raw']):.2f}`)."
+                            )
+                        elif method_cf == "linear_counterfactual" and not cf_list:
+                            # Already below target - clean state
+                            if "already" in cf_note.lower():
+                                st.info(
+                                    "Predicted risk is already at or below the "
+                                    "20% target threshold - no intervention "
+                                    "recommended."
+                                )
+                except requests.RequestException:
+                    pass  # counterfactual is a nice-to-have; never block predict
 
                 # ---- Behavior summary ---------------------------------
                 st.markdown("**What you fed the model**")

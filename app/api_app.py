@@ -43,6 +43,7 @@ from pathlib import Path
 from typing import Any
 
 import joblib
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -262,6 +263,275 @@ def predict(payload: dict[str, Any]) -> PredictResponse:
         probability_redteam_next_window=prob,
         model_name=best_model_summary["name"],
     )
+
+
+@app.post("/explain")
+def explain(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return per-feature contributions to the prediction (explainable AI).
+
+    For a linear model (logistic regression), each feature's contribution to
+    the predicted log-odds is exactly:
+
+        contribution_i = coef_i * scaled_value_i
+
+    where `scaled_value_i` is the feature value AFTER the preprocessing
+    pipeline (median impute + standard scale). This is not an approximation
+    - it's the exact decomposition of the model's decision. SOC analysts
+    can see which behaviors pushed risk UP vs. DOWN for a specific row.
+
+    For non-linear models (e.g. random forest), exact decomposition would
+    require SHAP. We return a 200 with method='unsupported' so the UI can
+    gracefully fall back to global feature importance.
+    """
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Payload must be a JSON object.")
+
+    features_dict = payload.get("features", payload)
+    if not isinstance(features_dict, dict):
+        raise HTTPException(
+            status_code=400,
+            detail="'features' must be an object mapping feature names to numbers.",
+        )
+
+    X = _build_feature_frame([features_dict])
+
+    try:
+        pred = int(model.predict(X)[0])
+        prob = float(model.predict_proba(X)[0, 1])
+    except Exception as exc:
+        logger.exception("Prediction in /explain failed")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}")
+
+    # Pull the named pipeline steps. train_model.py builds Pipeline([
+    #   ("preprocessor", ColumnTransformer(num + impute + scale)),
+    #   ("model", <classifier>),
+    # ]) - so these names are stable.
+    try:
+        preprocessor = model.named_steps["preprocessor"]
+        estimator = model.named_steps["model"]
+    except (AttributeError, KeyError):
+        return {
+            "prediction": pred,
+            "probability_redteam_next_window": prob,
+            "model_name": best_model_summary["name"],
+            "method": "unsupported",
+            "intercept": None,
+            "contributions": [],
+            "note": "Served model is not a Pipeline with named 'preprocessor' + 'model' steps.",
+        }
+
+    if not hasattr(estimator, "coef_"):
+        return {
+            "prediction": pred,
+            "probability_redteam_next_window": prob,
+            "model_name": best_model_summary["name"],
+            "method": "unsupported",
+            "intercept": None,
+            "contributions": [],
+            "note": "Per-row decomposition is only available for linear models.",
+        }
+
+    # Linear-model decomposition.
+    try:
+        X_scaled = np.asarray(preprocessor.transform(X))[0]
+    except Exception as exc:
+        logger.exception("Preprocessor transform failed in /explain")
+        raise HTTPException(status_code=500, detail=f"Preprocessor transform failed: {exc}")
+
+    coefficients = np.asarray(estimator.coef_)[0]
+    intercept = float(np.asarray(estimator.intercept_)[0])
+
+    if len(coefficients) != len(feature_names) or len(X_scaled) != len(feature_names):
+        # Shouldn't happen with the current pipeline, but a defensive check
+        # protects against silent misalignment if someone retrains differently.
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Shape mismatch: feature_names={len(feature_names)}, "
+                f"coef={len(coefficients)}, scaled={len(X_scaled)}"
+            ),
+        )
+
+    contributions = [
+        {
+            "feature": name,
+            "raw_value": float(features_dict.get(name, 0)),
+            "scaled_value": float(scaled_v),
+            "coefficient": float(coef),
+            "contribution": float(scaled_v * coef),
+        }
+        for name, scaled_v, coef in zip(feature_names, X_scaled, coefficients)
+    ]
+    # Sort by absolute contribution (biggest drivers first)
+    contributions.sort(key=lambda c: abs(c["contribution"]), reverse=True)
+
+    return {
+        "prediction": pred,
+        "probability_redteam_next_window": prob,
+        "model_name": best_model_summary["name"],
+        "method": "linear_log_odds_decomposition",
+        "intercept": intercept,
+        "contributions": contributions,
+    }
+
+
+@app.post("/counterfactual")
+def counterfactual(payload: dict[str, Any]) -> dict[str, Any]:
+    """Smallest single-feature interventions that would lower predicted risk.
+
+    For a linear model (logistic regression) this is an EXACT mathematical
+    inversion. Let L = intercept + sum_i coef_i * scaled_x_i be the
+    log-odds. To bring the predicted probability down to p_target, we need
+    delta_L = logit(p_target) - L_current. For each feature j alone to
+    deliver that delta:
+
+        delta_scaled_j = delta_L / coef_j
+        delta_raw_j    = delta_scaled_j * scale_j     (since scaled = raw / scale + const)
+
+    We rank features by absolute raw change required (smallest = most
+    actionable) and filter out interventions that would require feature
+    values to go negative (LANL features are all non-negative counts /
+    ratios / byte counts).
+    """
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Payload must be a JSON object.")
+
+    features_dict = payload.get("features", payload)
+    if not isinstance(features_dict, dict):
+        raise HTTPException(
+            status_code=400,
+            detail="'features' must be an object mapping feature names to numbers.",
+        )
+
+    target_probability = float(payload.get("target_probability", 0.20))
+    if not 0.0 < target_probability < 1.0:
+        raise HTTPException(
+            status_code=400,
+            detail="target_probability must be strictly between 0 and 1.",
+        )
+
+    X = _build_feature_frame([features_dict])
+    try:
+        current_prob = float(model.predict_proba(X)[0, 1])
+    except Exception as exc:
+        logger.exception("Counterfactual: predict_proba failed")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}")
+
+    # --- Pipeline introspection ----------------------------------
+    try:
+        preprocessor = model.named_steps["preprocessor"]
+        estimator = model.named_steps["model"]
+    except (AttributeError, KeyError):
+        return {
+            "current_probability": current_prob,
+            "target_probability": target_probability,
+            "method": "unsupported",
+            "interventions": [],
+            "note": "Served model is not a Pipeline with 'preprocessor' + 'model' steps.",
+        }
+
+    if not hasattr(estimator, "coef_"):
+        return {
+            "current_probability": current_prob,
+            "target_probability": target_probability,
+            "method": "unsupported",
+            "interventions": [],
+            "note": "Counterfactuals only available for linear models.",
+        }
+
+    # Nothing to do if we're already at or below target.
+    if current_prob <= target_probability:
+        return {
+            "current_probability": current_prob,
+            "target_probability": target_probability,
+            "method": "linear_counterfactual",
+            "interventions": [],
+            "note": "Predicted risk is already at or below the target threshold.",
+        }
+
+    # --- Pull scaler params --------------------------------------
+    try:
+        col_xformer = preprocessor.named_transformers_["num"]
+        scaler = col_xformer.named_steps["scaler"]
+        scales = np.asarray(scaler.scale_)
+    except (AttributeError, KeyError) as exc:
+        logger.warning("Could not extract scaler parameters: %s", exc)
+        return {
+            "current_probability": current_prob,
+            "target_probability": target_probability,
+            "method": "unsupported",
+            "interventions": [],
+            "note": "Could not extract scaler parameters from the pipeline.",
+        }
+
+    try:
+        X_scaled = np.asarray(preprocessor.transform(X))[0]
+    except Exception as exc:
+        logger.exception("Counterfactual: preprocessor.transform failed")
+        raise HTTPException(status_code=500, detail=f"Transform failed: {exc}")
+
+    coefficients = np.asarray(estimator.coef_)[0]
+    intercept = float(np.asarray(estimator.intercept_)[0])
+
+    current_logits = intercept + float(np.dot(coefficients, X_scaled))
+    # logit() but clamped away from 0/1 for safety
+    eps = 1e-12
+    target_logits = float(
+        np.log(target_probability / max(1.0 - target_probability, eps))
+    )
+    needed_delta = target_logits - current_logits  # negative (we want to lower)
+
+    if abs(needed_delta) < 1e-9:
+        return {
+            "current_probability": current_prob,
+            "target_probability": target_probability,
+            "method": "linear_counterfactual",
+            "interventions": [],
+            "note": "Current and target log-odds are effectively equal.",
+        }
+
+    # --- Per-feature counterfactual -----------------------------
+    interventions = []
+    for i, name in enumerate(feature_names):
+        coef_i = float(coefficients[i])
+        scale_i = float(scales[i]) if i < len(scales) else 1.0
+        if abs(coef_i) < 1e-9:
+            continue  # this feature can't move the needle at all
+
+        delta_scaled = needed_delta / coef_i
+        delta_raw = delta_scaled * scale_i
+
+        current_raw = float(features_dict.get(name, 0))
+        new_raw = current_raw + delta_raw
+        direction = "decrease" if delta_raw < 0 else "increase"
+        # All LANL features are counts / ratios / byte counts >= 0.
+        feasible_nonneg = new_raw >= 0.0
+
+        interventions.append({
+            "feature": name,
+            "current_raw": current_raw,
+            "suggested_raw": float(new_raw),
+            "delta_raw": float(delta_raw),
+            "abs_delta_raw": float(abs(delta_raw)),
+            "direction": direction,
+            "coefficient": coef_i,
+            "feasible_nonnegative": feasible_nonneg,
+        })
+
+    feasible = [c for c in interventions if c["feasible_nonnegative"]]
+    feasible.sort(key=lambda c: c["abs_delta_raw"])
+    fallback = sorted(interventions, key=lambda c: c["abs_delta_raw"])
+    pool = feasible if feasible else fallback
+
+    return {
+        "current_probability": current_prob,
+        "target_probability": target_probability,
+        "method": "linear_counterfactual",
+        "current_logits": current_logits,
+        "target_logits": target_logits,
+        "all_feasible": bool(feasible),
+        "interventions": pool[:10],
+    }
 
 
 @app.post("/batch_predict")
