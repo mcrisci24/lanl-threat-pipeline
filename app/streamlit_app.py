@@ -1144,6 +1144,73 @@ with tab_metrics:
                                 cC.metric("Recall at that threshold",
                                           f"{opt_f1.get('recall', 0):.3f}")
 
+                    # ---- Interactive threshold slider -----------------
+                    # The user drags a decision threshold; we look it up on
+                    # the precomputed PR curve and surface precision / recall
+                    # / F1 in real time. No API round-trip - the curve data
+                    # is already in the page.
+                    if ths and f1s:
+                        st.markdown("**Interactive threshold explorer**")
+                        st.caption(
+                            "Drag the slider to set a decision threshold. "
+                            "Precision, recall, and F1 update from the "
+                            "validation-set PR curve in real time. The "
+                            "F1-optimal threshold from above is the default."
+                        )
+                        default_t = float(
+                            opt_f1.get("threshold", 0.5)
+                            if opt_f1 else 0.5
+                        )
+                        # Slider bounds based on actual curve range
+                        t_min = float(min(ths))
+                        t_max = float(max(ths))
+                        # Default fits inside the slider range
+                        slider_default = max(t_min, min(t_max, default_t))
+                        chosen_t = st.slider(
+                            "Decision threshold",
+                            min_value=float(t_min),
+                            max_value=float(t_max),
+                            value=slider_default,
+                            step=max((t_max - t_min) / 200.0, 1e-6),
+                            format="%.4f",
+                            help=(
+                                "P(predicted positive) above this value -> "
+                                "flag as compromised. Default is the F1-"
+                                "optimal cutoff."
+                            ),
+                        )
+                        # Look up the closest curve point
+                        ths_arr = list(ths)
+                        nearest_idx = min(
+                            range(len(ths_arr)),
+                            key=lambda i: abs(ths_arr[i] - chosen_t),
+                        )
+                        p_at = precisions[nearest_idx]
+                        r_at = recalls[nearest_idx]
+                        f1_at = f1s[nearest_idx]
+
+                        s1, s2, s3, s4 = st.columns(4)
+                        s1.metric("Threshold", f"{ths_arr[nearest_idx]:.4f}")
+                        s2.metric("Precision", f"{p_at:.4f}")
+                        s3.metric("Recall", f"{r_at:.4f}")
+                        s4.metric("F1", f"{f1_at:.4f}")
+
+                        # Plain-language read of the operational meaning
+                        n_pos = int(thresh.get("n_positives", 0))
+                        n_total = int(thresh.get("n_total", 0))
+                        caught = int(round(r_at * n_pos))
+                        st.markdown(
+                            f"At threshold **{ths_arr[nearest_idx]:.3f}**, "
+                            f"you'd catch **{caught} of {n_pos}** "
+                            f"known red-team windows in the validation set "
+                            f"({r_at:.1%} recall). Of every 10,000 alerts "
+                            f"raised at this threshold, roughly "
+                            f"**{p_at * 10000:.0f}** would be true "
+                            f"compromises — the rest are false alarms."
+                        )
+
+                        st.markdown("---")
+
                     # ---- Cost-matrix calculator -----------------------
                     st.markdown("**Cost-matrix calculator**")
                     st.caption(
