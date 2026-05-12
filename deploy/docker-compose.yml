@@ -1,0 +1,39 @@
+# =============================================================================
+# deploy/docker-compose.yml
+# =============================================================================
+# Lift the API + UI together with one command.
+#
+# Usage:
+#   docker compose -f deploy/docker-compose.yml up --build
+#
+# Then:
+#   curl http://localhost:8000/health
+#   open http://localhost:8501            (Streamlit)
+#   python test_project.py --url http://localhost:8000
+# =============================================================================
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      LANL_LOG_LEVEL: INFO
+
+  ui:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ..:/app
+    command: >
+      bash -c "pip install --no-cache-dir streamlit requests pandas altair plotly &&
+               streamlit run app/streamlit_app.py --server.address=0.0.0.0 --server.port=8501"
+    ports:
+      - "8501:8501"
+    environment:
+      LANL_API_URL: http://api:8000
+    depends_on:
+      - api

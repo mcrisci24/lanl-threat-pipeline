@@ -1,0 +1,17 @@
+{
+  "name": "logistic_regression_baseline",
+  "metrics": {
+    "valid_precision": 0.00017482186073648447,
+    "valid_recall": 0.6974789915966386,
+    "valid_f1": 0.00034955610586075034,
+    "valid_roc_auc": 0.8015659446956884,
+    "valid_pr_auc": 0.0006575564208122457,
+    "test_precision": 0.00017882651934166596,
+    "test_recall": 0.7142857142857143,
+    "test_f1": 0.0003575635201076897,
+    "test_roc_auc": 0.8200758350165872,
+    "test_pr_auc": 0.0011099908328513883
+  },
+  "model_path": "C:\\Users\\markc\\Documents\\DistributedCompProject2\\LANL\\model_outputs\\logistic_regression_baseline\\logistic_regression_baseline.joblib",
+  "mlflow_run_id": "7b46730c751b45c09395fa763bdbf258"
+}

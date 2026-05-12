@@ -1,0 +1,41 @@
+# ============================================================
+# LANL Threat Prediction Pipeline — Python dependencies
+# ============================================================
+# Pin loosely so the project installs on EMR, EC2, and local dev
+# but stays reproducible enough for a capstone demo.
+
+# --- Data engineering (Spark / S3) ---
+pyspark>=3.4,<4.0
+boto3>=1.34
+# s3fs + fsspec are pinned to a matching pair to avoid a transitive
+# dependency-resolution failure (s3fs requires a very specific fsspec
+# version, and pip can't find compatible ranges otherwise).
+s3fs==2025.5.0
+fsspec==2025.5.0
+pyarrow>=14.0
+
+# --- Machine learning ---
+scikit-learn>=1.4,<2.0
+joblib>=1.3
+numpy>=1.26
+pandas>=2.1
+
+# --- Experiment tracking ---
+mlflow>=2.10
+
+# --- Web serving ---
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.5
+requests>=2.31
+
+# --- UI ---
+streamlit>=1.57
+altair>=5.2
+plotly>=5.18
+
+# --- Tests / dev ---
+pytest>=8.0
+
+# --- Write-up PDF generator ---
+reportlab>=4.0
