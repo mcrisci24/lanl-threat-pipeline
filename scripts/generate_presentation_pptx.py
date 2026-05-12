@@ -413,24 +413,27 @@ def main() -> int:
 
     # ---------- 10. Metric dashboard ------------------------------------
     def s10(slide):
-        add_accent_bar(slide); add_header(slide, "Evaluation — honest numbers")
+        add_accent_bar(slide); add_header(slide, "Evaluation — honest numbers (served model)")
         add_image(slide, "metric_dashboard.png",
                   Inches(0.5), Inches(1.1), width=Inches(12.5))
         bullets = [
-            "ROC AUC of 0.82 is the headline:  given a positive + negative pair,",
-            "the model ranks the positive higher 82 % of the time.",
+            "Test ROC AUC = 0.881  -  given a positive + negative pair, the",
+            "model ranks the positive higher 88 % of the time.",
             "",
-            "Why precision / F1 are tiny:  class_weight='balanced' is aggressive,",
-            "so the model produces many false positives in absolute terms - but",
-            "very few in relative terms (negatives are 99.996 % of the data).",
+            "Test PR AUC = 0.039  -  ~35x the LR baseline's 0.0011, and the metric",
+            "that actually matters on a 0.0043% positive rate.",
             "",
-            "PR AUC is the right honest metric on data this imbalanced.",
+            "Why precision is tiny:  with this much imbalance, even a model that",
+            "ranks 88% of pairs correctly produces many absolute false positives",
+            "(negatives are 99.996% of the data). Threshold tuning (slide 14b)",
+            "is how we manage that operationally.",
         ]
         add_bullets(slide, bullets, Inches(0.7), Inches(4.7),
-                    Inches(12), Inches(2.7), size=14)
+                    Inches(12), Inches(2.7), size=13)
     notes_s10 = (
-        "Pre-empt the obvious 'why is precision so low?' question by leading "
-        "with the explanation."
+        "Lead with the two headline numbers: ROC AUC 0.881 and PR AUC 0.039. "
+        "Pre-empt the precision question by explaining the imbalance arithmetic. "
+        "Mention threshold tuning is what we use to control operating-point trade-offs."
     )
     slide_composers.append((s10, notes_s10))
 
@@ -575,55 +578,53 @@ def main() -> int:
     )
     slide_composers.append((s14, notes_s14))
 
-    # ---------- 14b. WOW: XGBoost + threshold tuning --------------------
+    # ---------- 14b. WOW: 4-model bake-off + cost-aware threshold tuning -
     def s14b(slide):
-        add_accent_bar(slide); add_header(slide, "Wow #3 — XGBoost + cost-aware threshold tuning")
-        # Left column: XGBoost
-        add_text_block(slide, "Three models compared, MLflow picks the winner",
-                       Inches(0.6), Inches(1.2), Inches(6), Inches(0.5),
-                       size=18, color=ACCENT, bold=True)
-        add_bullets(slide, [
-            "logistic_regression_baseline    - linear, interpretable, sidecar",
-            "random_forest_model              - non-linear, robust baseline",
-            "xgboost_model                    - gradient boosting, top performer",
-            "",
-            "All three logged to MLflow tracking.",
-            "Winner aliased Production in the Model Registry.",
-            "Loser's role: LR is kept loaded as a sidecar so",
-            "/counterfactual still works when a tree wins.",
-            "",
-            "/explain handles BOTH:",
-            "    linear -> exact coefficient * scaled_value decomposition",
-            "    XGBoost -> exact TreeSHAP via booster.predict(pred_contribs=True)",
-        ], Inches(0.6), Inches(1.7), Inches(6.2), Inches(5.5), size=12)
+        add_accent_bar(slide); add_header(slide, "Wow #3 — Four-model bake-off + cost-aware threshold tuning")
+        # Top: the 4-model comparison chart (real numbers from each metrics.json)
+        add_image(slide, "model_comparison.png",
+                  Inches(0.4), Inches(1.0), width=Inches(7.6))
 
-        # Right column: threshold tuning
-        add_text_block(slide, "Cost-aware threshold tuning",
-                       Inches(7.0), Inches(1.2), Inches(6), Inches(0.5),
-                       size=18, color=ACCENT, bold=True)
+        # Right column: the story
+        add_text_block(slide, "MLflow picks the winner",
+                       Inches(8.2), Inches(1.05), Inches(5), Inches(0.5),
+                       size=17, color=ACCENT, bold=True)
         add_bullets(slide, [
-            "Default cutoff is 0.5. Operationally it should NOT be.",
-            "Validation-set precision / recall / F1 curve computed at train time;",
-            "saved to threshold_analysis.json per model.",
+            "logistic_regression_baseline   linear, interpretable",
+            "random_forest_model             non-linear baseline",
+            "xgboost_model                    gradient-boosted trees",
+            "lightgbm_model                   histogram boosting  <- WINNER",
             "",
-            "Two API endpoints expose this:",
-            "    GET  /threshold_analysis        full curve + F1-optimal threshold",
-            "    POST /cost_optimal_threshold    given {cost_fp, cost_fn},",
-            "                                     return the threshold that",
-            "                                     minimizes expected cost.",
+            "Test ROC AUC   LR=0.820  ->  LightGBM=0.881",
+            "Test PR AUC   LR=0.0011 ->  LightGBM=0.0390  (35x)",
             "",
-            "UI: PR curve + cost-matrix calculator.",
-            "Analyst inputs:  cost of analyst time  vs  cost of missed breach.",
-            "System outputs:  the threshold that minimizes total expected loss.",
-        ], Inches(7.0), Inches(1.7), Inches(6.0), Inches(5.5), size=12)
+            "All 4 logged to MLflow tracking.",
+            "Winner aliased  Production  in Model Registry.",
+            "LR sidecar kept loaded so /counterfactual still",
+            "works even though a tree model serves.",
+            "",
+            "/explain handles all three model families:",
+            "  linear  -> coef * scaled_value (exact)",
+            "  XGBoost -> booster.predict(pred_contribs=True)",
+            "  LightGBM -> booster.predict(pred_contrib=True)",
+        ], Inches(8.2), Inches(1.55), Inches(5.0), Inches(5.5), size=11)
+
+        # Bottom strip: threshold tuning callout
+        add_text_block(slide, "Plus cost-aware threshold tuning",
+                       Inches(0.4), Inches(6.0), Inches(8), Inches(0.4),
+                       size=14, color=ACCENT, bold=True)
+        add_text_block(slide,
+            "Default cutoff is 0.5; operationally it should not be. /threshold_analysis serves the validation PR curve "
+            "+ F1-optimal threshold. /cost_optimal_threshold takes {cost_fp, cost_fn} and returns the threshold that "
+            "minimizes expected operational cost. UI surfaces both as a cost-matrix calculator.",
+            Inches(0.4), Inches(6.4), Inches(7.7), Inches(1.2),
+            size=11, color=BODY)
     notes_s14b = (
-        "This slide is the third wow. It does two things at once: (1) "
-        "demonstrates that we train three models and pick the winner by "
-        "MLflow-tracked validation metrics; (2) operationalizes the "
-        "threshold-tuning insight that most ML capstones skip. The "
-        "cost-matrix calculator is the part to demo live - input a 100-to-1 "
-        "FN-vs-FP cost and the system recommends a much lower threshold "
-        "than 0.5, which is exactly what a real SOC would want."
+        "Lead with the numbers: 35x PR AUC improvement from LR to LightGBM. "
+        "The chart shows it across all four metrics. Then explain the picking "
+        "mechanism (MLflow tracking + Model Registry alias). Finish with "
+        "cost-aware thresholds - demo live by entering a 100-to-1 FN/FP "
+        "cost and watching the system pick the right threshold."
     )
     slide_composers.append((s14b, notes_s14b))
 

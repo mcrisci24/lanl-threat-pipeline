@@ -424,6 +424,93 @@ def render_pivot_table(plt) -> Path:
     return out
 
 
+def render_model_comparison(plt) -> Path | None:
+    """Four-model side-by-side comparison on the four headline metrics.
+
+    Reads each model's own metrics.json from model_outputs/<name>/. Uses a
+    2x2 grid because the metrics span ~5 orders of magnitude (PR AUC is
+    ~0.001 while ROC AUC is ~0.88) - putting them on the same axis would
+    visually erase PR AUC. Winning model gets the mint-green ARMED color;
+    others stay navy so the win is unambiguous.
+    """
+    import numpy as _np
+    candidates = [
+        ("logistic_regression_baseline", "LR baseline"),
+        ("random_forest_model",          "Random Forest"),
+        ("xgboost_model",                "XGBoost"),
+        ("lightgbm_model",               "LightGBM"),
+    ]
+    rows: list[tuple[str, str, dict]] = []
+    for folder, label in candidates:
+        p = MODEL_DIR / folder / "metrics.json"
+        if not p.exists():
+            print(f"  (skipping {folder} - no metrics.json)")
+            continue
+        try:
+            m = json.loads(p.read_text(encoding="utf-8"))
+            rows.append((folder, label, m))
+        except Exception as e:
+            print(f"  (skipping {folder} - {e})")
+
+    if len(rows) < 2:
+        print("  (model_comparison needs >=2 trained models)")
+        return None
+
+    # Determine the winner from best_model_summary.json (or by max valid_f1).
+    best_path = MODEL_DIR / "best_model_summary.json"
+    winner_name = ""
+    if best_path.exists():
+        try:
+            winner_name = json.loads(best_path.read_text(encoding="utf-8")).get("name", "")
+        except Exception:
+            pass
+    if not winner_name:
+        winner_name = max(rows, key=lambda r: r[2].get("valid_f1", 0.0))[0]
+
+    fig, axes = plt.subplots(2, 2, figsize=(13, 7.5))
+    metric_keys = [
+        ("test_roc_auc", "Test ROC AUC",  "higher is better  -  ranking quality"),
+        ("test_pr_auc",  "Test PR AUC",   "higher is better  -  the metric that matters on imbalanced data"),
+        ("test_f1",      "Test F1",       "higher is better"),
+        ("test_recall",  "Test recall",   "higher is better"),
+    ]
+
+    for ax, (key, title, subtitle) in zip(axes.flat, metric_keys):
+        labels = [r[1] for r in rows]
+        values = [float(r[2].get(key, 0)) for r in rows]
+        colors_ = [
+            "#10F2A2" if r[0] == winner_name else NAVY
+            for r in rows
+        ]
+        bars = ax.bar(labels, values, color=colors_, edgecolor="none")
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        ax.text(0.5, 1.05, subtitle, transform=ax.transAxes,
+                ha="center", fontsize=10, color=GRAY, style="italic")
+        # Value labels above each bar
+        for bar, v in zip(bars, values):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max(values) * 0.02,
+                f"{v:.4f}" if v < 0.1 else f"{v:.3f}",
+                ha="center", va="bottom", fontsize=10,
+                color=NAVY, fontweight="bold",
+            )
+        ax.set_ylim(0, max(values) * 1.20 if max(values) > 0 else 1)
+        ax.tick_params(axis="x", labelsize=10)
+        for tick in ax.get_xticklabels():
+            tick.set_rotation(0)
+
+    fig.suptitle(
+        f"Four models compared  -  winner: {winner_name}",
+        fontsize=17, fontweight="bold", color=NAVY, y=1.005,
+    )
+    plt.tight_layout()
+    out = ASSETS_DIR / "model_comparison.png"
+    plt.savefig(out)
+    plt.close(fig)
+    return out
+
+
 def render_pipeline_run_timeline(plt) -> Path:
     """Horizontal timeline of the EMR run."""
     import matplotlib.patches as mpatches
@@ -483,6 +570,7 @@ def main() -> int:
         (render_data_volumes,           "data volumes"),
         (render_feature_importances,    "feature importances"),
         (render_metric_dashboard,       "metric dashboard"),
+        (render_model_comparison,       "model comparison (4 models)"),
         (render_architecture_diagram,   "architecture diagram"),
         (render_medallion_diagram,      "medallion diagram"),
         (render_explainer_demo,         "explainer demo"),

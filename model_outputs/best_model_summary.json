@@ -1,17 +1,17 @@
 {
-  "name": "xgboost_model",
+  "name": "lightgbm_model",
   "metrics": {
-    "valid_precision": 0.0007040313446998684,
-    "valid_recall": 0.19327731092436976,
-    "valid_f1": 0.0014029522996218129,
-    "valid_roc_auc": 0.8440194081139117,
-    "valid_pr_auc": 0.0017371870712325473,
-    "test_precision": 0.0009246132034765456,
-    "test_recall": 0.25210084033613445,
-    "test_f1": 0.0018424689083371719,
-    "test_roc_auc": 0.8792066064591125,
-    "test_pr_auc": 0.03542256788534423
+    "valid_precision": 0.0012107453651153991,
+    "valid_recall": 0.13445378151260504,
+    "valid_f1": 0.0023998800059997,
+    "valid_roc_auc": 0.8380996426263776,
+    "valid_pr_auc": 0.0016145422805882179,
+    "test_precision": 0.0012205355099549928,
+    "test_recall": 0.13445378151260504,
+    "test_f1": 0.002419110976716057,
+    "test_roc_auc": 0.8812031048263502,
+    "test_pr_auc": 0.03904508624183807
   },
-  "model_path": "C:\\Users\\markc\\Documents\\DistributedCompProject2\\LANL\\model_outputs\\xgboost_model\\xgboost_model.joblib",
-  "mlflow_run_id": "56766c72e3ff4493ad8434e77f37ea02"
+  "model_path": "C:\\Users\\markc\\Documents\\DistributedCompProject2\\LANL\\model_outputs\\lightgbm_model\\lightgbm_model.joblib",
+  "mlflow_run_id": "7e37d762b4894770a7584075c5b4e133"
 }

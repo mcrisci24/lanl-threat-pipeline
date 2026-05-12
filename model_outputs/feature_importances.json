@@ -1,177 +1,177 @@
 {
-  "model_name": "xgboost_model",
+  "model_name": "lightgbm_model",
   "importances": [
     [
-      "flows_total_events",
-      0.060586776584386826
-    ],
-    [
-      "proc_end_count",
-      0.054451730102300644
-    ],
-    [
-      "dns_lookup_count",
-      0.045347910374403
-    ],
-    [
-      "flows_total_packets",
-      0.0382591113448143
-    ],
-    [
-      "dns_unique_resolved_computers",
-      0.03560011461377144
-    ],
-    [
-      "flows_total_bytes",
-      0.03287533298134804
-    ],
-    [
-      "auth_dst_unique_src_users",
-      0.03270072862505913
-    ],
-    [
-      "auth_failure_ratio",
-      0.03268469125032425
-    ],
-    [
-      "flows_in_unique_src_ports",
-      0.029847152531147003
-    ],
-    [
-      "auth_dst_unique_src_computers",
-      0.02938351221382618
-    ],
-    [
-      "flows_in_total_packets",
-      0.02746475860476494
-    ],
-    [
-      "auth_total_successes",
-      0.026152227073907852
+      "auth_src_unique_dst_computers",
+      1608.0
     ],
     [
       "proc_event_count",
-      0.02552575245499611
+      1551.0
     ],
     [
-      "flows_out_total_bytes",
-      0.0243267510086298
-    ],
-    [
-      "auth_dst_event_count",
-      0.02304776944220066
-    ],
-    [
-      "flows_out_count",
-      0.022959847003221512
-    ],
-    [
-      "auth_src_success_count",
-      0.02258862368762493
-    ],
-    [
-      "flows_out_mean_bytes",
-      0.022158773615956306
-    ],
-    [
-      "auth_src_event_count",
-      0.021516427397727966
-    ],
-    [
-      "proc_start_end_imbalance",
-      0.021153468638658524
-    ],
-    [
-      "flows_packets_per_event",
-      0.02105986699461937
-    ],
-    [
-      "auth_dst_failure_count",
-      0.020894767716526985
-    ],
-    [
-      "flows_bytes_per_event",
-      0.020831923931837082
-    ],
-    [
-      "flows_in_total_duration",
-      0.020825762301683426
-    ],
-    [
-      "flows_in_unique_src_computers",
-      0.019732104614377022
-    ],
-    [
-      "proc_unique_users",
-      0.01969345286488533
-    ],
-    [
-      "proc_unique_processes",
-      0.019552405923604965
-    ],
-    [
-      "proc_start_count",
-      0.01937432587146759
-    ],
-    [
-      "auth_src_unique_dst_computers",
-      0.018889203667640686
-    ],
-    [
-      "auth_dst_success_count",
-      0.01883273385465145
-    ],
-    [
-      "auth_src_unique_dst_users",
-      0.018164997920393944
+      "auth_total_successes",
+      1441.0
     ],
     [
       "auth_total_events",
-      0.017199166119098663
+      1440.0
     ],
     [
-      "flows_in_total_bytes",
-      0.014576050452888012
+      "proc_unique_processes",
+      1416.0
     ],
     [
-      "flows_in_mean_bytes",
-      0.014548604376614094
+      "proc_start_end_imbalance",
+      1406.0
     ],
     [
-      "flows_in_count",
-      0.014210537075996399
+      "auth_src_success_count",
+      1403.0
     ],
     [
-      "flows_out_total_packets",
-      0.01359124667942524
+      "auth_src_event_count",
+      1401.0
     ],
     [
-      "flows_in_mean_packets",
-      0.013439632952213287
+      "auth_src_unique_dst_users",
+      1161.0
+    ],
+    [
+      "auth_dst_event_count",
+      1143.0
+    ],
+    [
+      "proc_start_count",
+      1131.0
+    ],
+    [
+      "auth_dst_success_count",
+      1016.0
+    ],
+    [
+      "proc_end_count",
+      826.0
+    ],
+    [
+      "dns_lookup_count",
+      810.0
+    ],
+    [
+      "auth_dst_unique_src_computers",
+      714.0
+    ],
+    [
+      "auth_dst_unique_src_users",
+      552.0
+    ],
+    [
+      "proc_unique_users",
+      500.0
+    ],
+    [
+      "dns_unique_resolved_computers",
+      488.0
     ],
     [
       "flows_out_total_duration",
-      0.013309203088283539
+      368.0
+    ],
+    [
+      "auth_failure_ratio",
+      322.0
     ],
     [
       "flows_out_unique_dst_ports",
-      0.012828957289457321
+      288.0
+    ],
+    [
+      "flows_total_events",
+      285.0
+    ],
+    [
+      "flows_in_count",
+      265.0
+    ],
+    [
+      "flows_out_count",
+      261.0
+    ],
+    [
+      "flows_total_bytes",
+      230.0
     ],
     [
       "auth_src_failure_count",
-      0.01125863566994667
+      219.0
     ],
     [
-      "flows_out_mean_packets",
-      0.011102467775344849
+      "flows_out_mean_bytes",
+      210.0
     ],
     [
-      "auth_total_failures",
-      0.010881028138101101
+      "flows_in_mean_bytes",
+      197.0
+    ],
+    [
+      "flows_in_unique_src_ports",
+      183.0
     ],
     [
       "flows_out_unique_dst_computers",
-      0.006571564357727766
+      181.0
+    ],
+    [
+      "flows_bytes_per_event",
+      171.0
+    ],
+    [
+      "flows_packets_per_event",
+      165.0
+    ],
+    [
+      "flows_total_packets",
+      159.0
+    ],
+    [
+      "flows_out_total_packets",
+      155.0
+    ],
+    [
+      "flows_in_total_duration",
+      155.0
+    ],
+    [
+      "auth_dst_failure_count",
+      144.0
+    ],
+    [
+      "flows_out_total_bytes",
+      141.0
+    ],
+    [
+      "auth_total_failures",
+      138.0
+    ],
+    [
+      "flows_in_mean_packets",
+      136.0
+    ],
+    [
+      "flows_out_mean_packets",
+      120.0
+    ],
+    [
+      "flows_in_unique_src_computers",
+      116.0
+    ],
+    [
+      "flows_in_total_bytes",
+      98.0
+    ],
+    [
+      "flows_in_total_packets",
+      86.0
     ]
   ]
 }

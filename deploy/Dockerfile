@@ -19,6 +19,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# --- System libraries -----------------------------------------------------
+# LightGBM links against libgomp.so.1 (GNU OpenMP) at runtime for its
+# parallel tree-fit/predict. The python:3.11-slim base image strips this
+# out, so we install it explicitly via apt. Without this you get:
+#   OSError: libgomp.so.1: cannot open shared object file
+# at container startup when joblib.load() tries to unpickle a LightGBM
+# pipeline. XGBoost ships its own OpenMP runtime in its wheel, so this is
+# only needed for LightGBM - but the package is tiny (~140 KB).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # --- Install only the serving-time dependencies --------------------------
 # We avoid installing pyspark in the API image - smaller image, faster boot.
 # xgboost is REQUIRED here even if it's not used in the request path:
