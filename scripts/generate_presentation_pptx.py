@@ -575,6 +575,58 @@ def main() -> int:
     )
     slide_composers.append((s14, notes_s14))
 
+    # ---------- 14b. WOW: XGBoost + threshold tuning --------------------
+    def s14b(slide):
+        add_accent_bar(slide); add_header(slide, "Wow #3 — XGBoost + cost-aware threshold tuning")
+        # Left column: XGBoost
+        add_text_block(slide, "Three models compared, MLflow picks the winner",
+                       Inches(0.6), Inches(1.2), Inches(6), Inches(0.5),
+                       size=18, color=ACCENT, bold=True)
+        add_bullets(slide, [
+            "logistic_regression_baseline    - linear, interpretable, sidecar",
+            "random_forest_model              - non-linear, robust baseline",
+            "xgboost_model                    - gradient boosting, top performer",
+            "",
+            "All three logged to MLflow tracking.",
+            "Winner aliased Production in the Model Registry.",
+            "Loser's role: LR is kept loaded as a sidecar so",
+            "/counterfactual still works when a tree wins.",
+            "",
+            "/explain handles BOTH:",
+            "    linear -> exact coefficient * scaled_value decomposition",
+            "    XGBoost -> exact TreeSHAP via booster.predict(pred_contribs=True)",
+        ], Inches(0.6), Inches(1.7), Inches(6.2), Inches(5.5), size=12)
+
+        # Right column: threshold tuning
+        add_text_block(slide, "Cost-aware threshold tuning",
+                       Inches(7.0), Inches(1.2), Inches(6), Inches(0.5),
+                       size=18, color=ACCENT, bold=True)
+        add_bullets(slide, [
+            "Default cutoff is 0.5. Operationally it should NOT be.",
+            "Validation-set precision / recall / F1 curve computed at train time;",
+            "saved to threshold_analysis.json per model.",
+            "",
+            "Two API endpoints expose this:",
+            "    GET  /threshold_analysis        full curve + F1-optimal threshold",
+            "    POST /cost_optimal_threshold    given {cost_fp, cost_fn},",
+            "                                     return the threshold that",
+            "                                     minimizes expected cost.",
+            "",
+            "UI: PR curve + cost-matrix calculator.",
+            "Analyst inputs:  cost of analyst time  vs  cost of missed breach.",
+            "System outputs:  the threshold that minimizes total expected loss.",
+        ], Inches(7.0), Inches(1.7), Inches(6.0), Inches(5.5), size=12)
+    notes_s14b = (
+        "This slide is the third wow. It does two things at once: (1) "
+        "demonstrates that we train three models and pick the winner by "
+        "MLflow-tracked validation metrics; (2) operationalizes the "
+        "threshold-tuning insight that most ML capstones skip. The "
+        "cost-matrix calculator is the part to demo live - input a 100-to-1 "
+        "FN-vs-FP cost and the system recommends a much lower threshold "
+        "than 0.5, which is exactly what a real SOC would want."
+    )
+    slide_composers.append((s14b, notes_s14b))
+
     # ---------- 15. Hosting + test script -------------------------------
     def s15(slide):
         add_accent_bar(slide); add_header(slide, "Hosting + test script")
@@ -637,11 +689,13 @@ def main() -> int:
                        Inches(7.0), Inches(1.2), Inches(6), Inches(0.5),
                        size=20, color=ACCENT, bold=True)
         add_bullets(slide, [
-            "1.  Streaming: Kinesis -> Spark Structured Streaming -> live scoring.",
-            "2.  Automated retraining: EventBridge cron -> EMR Step + train_model.",
-            "3.  Calibration + per-cost threshold tuning.",
+            "1.  Per-cost-matrix threshold tuning.",
+            "      analyst would supply FP-cost / FN-cost; the system picks",
+            "      the threshold that minimizes expected operational cost.",
+            "2.  Streaming: Kinesis -> Spark Structured Streaming -> live scoring.",
+            "3.  Automated retraining: EventBridge cron -> EMR Step + train_model.",
             "4.  Multi-feature counterfactual paths (ensemble of interventions).",
-        ], Inches(7.0), Inches(1.7), Inches(6), Inches(4.5), size=14)
+        ], Inches(7.0), Inches(1.7), Inches(6), Inches(4.5), size=13)
     notes_s17 = "Show what you didn't do. Honesty + specific roadmap signals real understanding."
     slide_composers.append((s17, notes_s17))
 

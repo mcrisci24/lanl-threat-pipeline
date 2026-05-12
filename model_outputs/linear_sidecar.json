@@ -1,0 +1,5 @@
+{
+  "name": "logistic_regression_baseline",
+  "model_path": "model_outputs\\linear_sidecar.joblib",
+  "purpose": "counterfactual fallback for non-linear served models"
+}

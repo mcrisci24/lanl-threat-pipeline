@@ -84,33 +84,258 @@ FEATURE_IMPORTANCES_FILE = LOCAL_MODEL_DIR / "feature_importances.json"
 # PAGE CONFIG  (must be the first Streamlit call)
 # ============================================================
 st.set_page_config(
-    page_title="LANL Threat Predictor",
-    page_icon="lanl",
+    page_title="LANL Threat Operations",
+    page_icon="*",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 
 # ============================================================
-# STYLING
+# STYLING — cyber-security operations dashboard
 # ============================================================
-# Minimal CSS to make the result cards stand out without going overboard.
-# Streamlit's default look is fine; we just want the verdict to read clearly.
+# A SOC-tool aesthetic: near-black canvas, mint-green ARMED accent, amber for
+# elevated risk, deep red with glow for high-risk verdicts. Monospace surfaces
+# for technical values (model name, feature counts) reinforce the analyst-tool
+# feel without becoming Matrix kitsch.
 st.markdown(
     """
     <style>
-    .verdict-card {
-        padding: 1.25rem 1.5rem;
-        border-radius: 12px;
-        border: 1px solid rgba(127,127,127,0.25);
-        margin-bottom: 1rem;
+    /* ---- Global typography + canvas tweaks ------------------------------ */
+    html, body, [data-testid="stAppViewContainer"] {
+        background: #0A0E1A;
+        color: #E5E7EB;
     }
-    .verdict-low    { background: rgba( 46, 160,  67, 0.10); }
-    .verdict-medium { background: rgba(218, 165,  32, 0.12); }
-    .verdict-high   { background: rgba(239,  68,  68, 0.12); }
-    .verdict-title  { font-size: 1.15rem; font-weight: 600; margin-bottom: .25rem; }
-    .verdict-sub    { opacity: 0.85; font-size: 0.95rem; }
-    .small-muted    { font-size: 0.85rem; opacity: 0.7; }
+    h1, h2, h3, h4 {
+        color: #F3F4F6 !important;
+        letter-spacing: -0.01em;
+    }
+    /* Light-mode override: Streamlit applies inline styles to some elements */
+    code, kbd, samp {
+        background: rgba(16, 242, 162, 0.08) !important;
+        color: #10F2A2 !important;
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
+
+    /* ---- Sidebar -------------------------------------------------------- */
+    [data-testid="stSidebar"] {
+        background: #0F1623 !important;
+        border-right: 1px solid #1F2937;
+    }
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        color: #10F2A2 !important;
+        font-size: 0.85rem !important;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+    }
+
+    /* ---- Page header banner -------------------------------------------- */
+    .cyber-banner {
+        border-left: 4px solid #10F2A2;
+        padding: 0.9rem 1.4rem 0.9rem 1.2rem;
+        margin: 0 0 1.4rem 0;
+        background: linear-gradient(90deg, rgba(16, 242, 162, 0.06) 0%, transparent 80%);
+    }
+    .cyber-status {
+        color: #10F2A2;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        font-size: 0.78rem;
+        letter-spacing: 0.18em;
+        margin-bottom: 0.35rem;
+        text-transform: uppercase;
+    }
+    .cyber-status .pulse {
+        display: inline-block;
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 50%;
+        background: #10F2A2;
+        box-shadow: 0 0 12px #10F2A2;
+        margin-right: 0.55rem;
+        vertical-align: middle;
+        animation: cyber-pulse 1.8s infinite;
+    }
+    @keyframes cyber-pulse {
+        0%   { opacity: 1.0; transform: scale(1.0); }
+        50%  { opacity: 0.45; transform: scale(1.15); }
+        100% { opacity: 1.0; transform: scale(1.0); }
+    }
+    .cyber-banner h1 {
+        margin: 0 0 0.3rem 0 !important;
+        font-size: 2.2rem !important;
+        font-weight: 700 !important;
+        background: linear-gradient(135deg, #FFFFFF 0%, #10F2A2 90%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .cyber-banner p {
+        color: #9CA3AF !important;
+        margin: 0 !important;
+        font-size: 0.96rem !important;
+    }
+
+    /* ---- Verdict cards (high / medium / low risk) ---------------------- */
+    .verdict-card {
+        padding: 1.1rem 1.4rem;
+        border-radius: 10px;
+        border: 1px solid;
+        margin-bottom: 1rem;
+        font-family: 'Inter', sans-serif;
+    }
+    .verdict-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        margin-bottom: 0.35rem;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        text-transform: uppercase;
+    }
+    .verdict-sub { font-size: 0.95rem; opacity: 0.88; }
+
+    .verdict-low {
+        background: linear-gradient(135deg, rgba(16, 242, 162, 0.08) 0%, rgba(16, 242, 162, 0.02) 100%);
+        border-color: rgba(16, 242, 162, 0.45);
+        color: #10F2A2;
+    }
+    .verdict-medium {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.10) 0%, rgba(245, 158, 11, 0.02) 100%);
+        border-color: rgba(245, 158, 11, 0.45);
+        color: #F59E0B;
+    }
+    .verdict-high {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(239, 68, 68, 0.02) 100%);
+        border-color: rgba(239, 68, 68, 0.55);
+        color: #F87171;
+        box-shadow: 0 0 28px rgba(239, 68, 68, 0.18);
+    }
+    .verdict-low .verdict-sub,
+    .verdict-medium .verdict-sub,
+    .verdict-high .verdict-sub { color: #E5E7EB; }
+
+    /* ---- Sidebar API-status badge -------------------------------------- */
+    .api-status-online {
+        background: rgba(16, 242, 162, 0.12);
+        border: 1px solid rgba(16, 242, 162, 0.45);
+        padding: 0.7rem 0.9rem;
+        border-radius: 8px;
+        color: #10F2A2;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+    .api-status-online .label {
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        opacity: 0.85;
+        text-transform: uppercase;
+    }
+    .api-status-offline {
+        background: rgba(239, 68, 68, 0.10);
+        border: 1px solid rgba(239, 68, 68, 0.5);
+        padding: 0.7rem 0.9rem;
+        border-radius: 8px;
+        color: #F87171;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        font-size: 0.85rem;
+    }
+
+    /* ---- Metric tiles ------------------------------------------------- */
+    [data-testid="stMetric"] {
+        background: #111827;
+        border: 1px solid #1F2937;
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+    }
+    [data-testid="stMetric"] [data-testid="stMetricLabel"] {
+        color: #9CA3AF !important;
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    [data-testid="stMetric"] [data-testid="stMetricValue"] {
+        color: #10F2A2 !important;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+    }
+
+    /* ---- Buttons (Predict, etc.) -------------------------------------- */
+    .stButton > button {
+        background: linear-gradient(135deg, #10F2A2 0%, #06B6D4 100%) !important;
+        color: #0A0E1A !important;
+        font-weight: 700 !important;
+        font-family: 'JetBrains Mono', 'Consolas', monospace !important;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        border: none !important;
+        border-radius: 6px !important;
+        box-shadow: 0 0 24px rgba(16, 242, 162, 0.25);
+        transition: all 0.18s ease;
+    }
+    .stButton > button:hover {
+        box-shadow: 0 0 36px rgba(16, 242, 162, 0.55);
+        transform: translateY(-1px);
+    }
+
+    /* ---- Form inputs -------------------------------------------------- */
+    [data-baseweb="input"] input,
+    [data-baseweb="select"] {
+        background: #1F2937 !important;
+        color: #E5E7EB !important;
+        border-color: #374151 !important;
+    }
+    .stNumberInput [data-baseweb="input"] {
+        background: #1F2937 !important;
+    }
+
+    /* ---- Expander headers --------------------------------------------- */
+    [data-testid="stExpander"] {
+        background: #111827;
+        border: 1px solid #1F2937;
+        border-radius: 8px;
+    }
+    [data-testid="stExpander"] summary {
+        color: #10F2A2;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        font-size: 0.85rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    /* ---- Tabs --------------------------------------------------------- */
+    [data-baseweb="tab-list"] {
+        gap: 0.25rem;
+        border-bottom: 1px solid #1F2937;
+    }
+    [data-baseweb="tab"] {
+        color: #9CA3AF !important;
+        background: transparent !important;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        font-size: 0.85rem !important;
+    }
+    [data-baseweb="tab"][aria-selected="true"] {
+        color: #10F2A2 !important;
+        border-bottom: 2px solid #10F2A2 !important;
+    }
+
+    /* ---- Dataframes --------------------------------------------------- */
+    [data-testid="stDataFrame"] {
+        background: #111827;
+        border-radius: 6px;
+    }
+
+    /* ---- Captions / muted text --------------------------------------- */
+    .small-muted { font-size: 0.85rem; color: #6B7280; }
+    [data-testid="stCaption"] { color: #9CA3AF !important; }
+
+    /* ---- Hide the Streamlit "Made with" footer for a cleaner SOC look -- */
+    footer { visibility: hidden; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -149,35 +374,57 @@ def load_feature_importances() -> list[tuple[str, float]]:
 
 
 def _build_gauge(prob: float) -> "go.Figure | None":
-    """Plotly gauge: 0.00 - 1.00, color-coded by risk band.
+    """Plotly gauge re-themed for the cyber-SOC dashboard.
 
-    This is the second meaningful visualization called for in the rubric.
-    It also makes the UI feel alive instead of static.
+    The needle and ticks use the mint-green ARMED accent against the dark
+    canvas. Risk bands stay green / amber / red so the operational meaning
+    is unchanged, but the colors are tuned for legibility on the dark
+    background rather than against a default light theme.
     """
     if not _PLOTLY_OK:
         return None
-    return go.Figure(
+    fig = go.Figure(
         go.Indicator(
             mode="gauge+number",
             value=prob * 100,
-            number={"suffix": " %", "font": {"size": 32}},
+            number={
+                "suffix": " %",
+                "font": {"size": 36, "color": "#E5E7EB", "family": "JetBrains Mono, Consolas, monospace"},
+            },
             gauge={
-                "axis": {"range": [0, 100], "tickwidth": 1},
-                "bar": {"color": "#1f1f1f"},
+                "axis": {
+                    "range": [0, 100],
+                    "tickwidth": 1,
+                    "tickcolor": "#374151",
+                    "tickfont": {"color": "#9CA3AF", "size": 11},
+                },
+                "bgcolor": "rgba(0,0,0,0)",
+                "borderwidth": 0,
+                "bar": {"color": "#10F2A2", "thickness": 0.22},
                 "steps": [
-                    {"range": [0,  20], "color": "rgba( 46,160, 67,0.35)"},
-                    {"range": [20, 60], "color": "rgba(218,165, 32,0.35)"},
-                    {"range": [60,100], "color": "rgba(239, 68, 68,0.35)"},
+                    {"range": [0,  20], "color": "rgba(16, 242, 162, 0.18)"},
+                    {"range": [20, 60], "color": "rgba(245, 158, 11, 0.22)"},
+                    {"range": [60,100], "color": "rgba(239, 68,  68, 0.30)"},
                 ],
                 "threshold": {
-                    "line":  {"color": "black", "width": 3},
+                    "line":  {"color": "#F87171", "width": 3},
                     "thickness": 0.85,
                     "value": prob * 100,
                 },
             },
-            title={"text": "Next-window red-team probability"},
+            title={
+                "text": "NEXT-WINDOW RED-TEAM PROBABILITY",
+                "font": {"size": 12, "color": "#9CA3AF", "family": "JetBrains Mono, Consolas, monospace"},
+            },
         )
-    ).update_layout(height=260, margin=dict(l=20, r=20, t=40, b=10))
+    )
+    fig.update_layout(
+        height=280,
+        margin=dict(l=20, r=20, t=50, b=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
 
 
 def fetch_api_health() -> dict[str, Any] | None:
@@ -292,13 +539,21 @@ PRESETS: dict[str, dict[str, float]] = {
 
 
 # ============================================================
-# HEADER
+# HEADER  (cyber-themed banner instead of plain st.title)
 # ============================================================
-st.title("LANL Threat Prediction Dashboard")
-st.caption(
-    "An end-to-end distributed pipeline (S3 + EMR + Spark + MLflow + FastAPI + "
-    "Streamlit) that predicts whether a computer will show red-team activity "
-    "in the next event-time window."
+st.markdown(
+    """
+    <div class="cyber-banner">
+        <div class="cyber-status">
+            <span class="pulse"></span>SECURITY OPERATIONS / NEXT-WINDOW THREAT PREDICTION
+        </div>
+        <h1>LANL Threat Operations Dashboard</h1>
+        <p>End-to-end distributed pipeline (S3 &middot; EMR &middot; Spark &middot;
+           MLflow &middot; FastAPI &middot; Streamlit) with explainable + counterfactual XAI
+           for next-window red-team prediction.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -310,12 +565,33 @@ with st.sidebar:
 
     health = fetch_api_health()
     if health:
-        st.success(f"API online - serving `{health.get('model_name', '?')}`")
-        st.caption(f"{health.get('feature_count', '?')} features expected")
+        st.markdown(
+            f"""
+            <div class="api-status-online">
+                <div class="label">API STATUS</div>
+                <div style="font-size:1.05rem;font-weight:700;">[ ONLINE ]</div>
+                <div style="margin-top:0.3rem;color:#E5E7EB;">
+                    model &nbsp; <code>{health.get('model_name', '?')}</code><br/>
+                    features &nbsp; <code>{health.get('feature_count', '?')}</code>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
-        st.error("API is not reachable")
+        st.markdown(
+            f"""
+            <div class="api-status-offline">
+                <div style="font-weight:700;">[ OFFLINE ]</div>
+                <div style="margin-top:0.3rem;color:#E5E7EB;">
+                    Cannot reach <code>{API_URL}/health</code>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.caption(
-            f"Tried `{API_URL}/health`. Start the API with:\n\n"
+            "Start the API with:  "
             "`uvicorn app.api_app:app --host 0.0.0.0 --port 8000`"
         )
 
@@ -774,7 +1050,7 @@ with tab_metrics:
             st.markdown("---")
             st.subheader("Which features drive the prediction?")
             st.caption(
-                "Top 15 features by importance (random forest "
+                "Top 15 features by importance (random forest / XGBoost "
                 "`feature_importances_` or absolute logistic-regression "
                 "coefficients). Higher means the feature shifts the "
                 "model's output more."
@@ -786,6 +1062,147 @@ with tab_metrics:
                   .iloc[::-1]    # so the bar chart shows biggest at the top
             )
             st.bar_chart(imp_df, height=420)
+
+        # ---- Threshold tuning + cost-matrix calculator ----------------
+        # /threshold_analysis returns the validation-set PR curve. The user
+        # provides FP / FN costs and the system recommends the threshold
+        # that minimizes expected operational cost. This is the "cyberML"
+        # threshold-tuning idea operationalized inside our API.
+        try:
+            thresh_resp = requests.get(
+                f"{API_URL}/threshold_analysis", timeout=10
+            )
+            if thresh_resp.status_code == 200:
+                thresh = thresh_resp.json()
+                if thresh.get("available", False):
+                    st.markdown("---")
+                    st.subheader("Threshold tuning  /  cost-matrix calculator")
+                    st.caption(
+                        "The default decision threshold is 0.5, but the "
+                        "operationally correct cutoff depends on the relative "
+                        "cost of a missed attack vs an analyst chasing a "
+                        "false alarm. The curve below is computed on the "
+                        "validation set (never on test); use it to pick a "
+                        "threshold that matches your operating cost ratio."
+                    )
+
+                    # PR curve + F1-vs-threshold chart
+                    if _PLOTLY_OK:
+                        ths = thresh.get("thresholds", [])
+                        precisions = thresh.get("precisions", [])
+                        recalls = thresh.get("recalls", [])
+                        f1s = thresh.get("f1s", [])
+                        opt_f1 = thresh.get("optimal_f1") or {}
+
+                        if ths and f1s:
+                            fig_curve = go.Figure()
+                            fig_curve.add_trace(go.Scatter(
+                                x=ths, y=precisions,
+                                name="Precision", mode="lines",
+                                line=dict(color="#10F2A2", width=2),
+                            ))
+                            fig_curve.add_trace(go.Scatter(
+                                x=ths, y=recalls,
+                                name="Recall", mode="lines",
+                                line=dict(color="#06B6D4", width=2),
+                            ))
+                            fig_curve.add_trace(go.Scatter(
+                                x=ths, y=f1s,
+                                name="F1", mode="lines",
+                                line=dict(color="#F59E0B", width=2.4),
+                            ))
+                            if opt_f1.get("threshold") is not None:
+                                fig_curve.add_vline(
+                                    x=opt_f1["threshold"],
+                                    line_dash="dash",
+                                    line_color="#F87171",
+                                    annotation_text=(
+                                        f"F1-optimal t = {opt_f1['threshold']:.3f}"
+                                    ),
+                                    annotation_position="top",
+                                )
+                            fig_curve.update_layout(
+                                height=360,
+                                margin=dict(l=10, r=10, t=30, b=40),
+                                xaxis_title="Decision threshold",
+                                yaxis_title="Metric value",
+                                paper_bgcolor="rgba(0,0,0,0)",
+                                plot_bgcolor="rgba(0,0,0,0)",
+                                font=dict(color="#E5E7EB"),
+                                xaxis=dict(gridcolor="#1F2937"),
+                                yaxis=dict(gridcolor="#1F2937"),
+                                legend=dict(orientation="h", y=-0.18),
+                            )
+                            st.plotly_chart(fig_curve, use_container_width=True)
+
+                            if opt_f1:
+                                cA, cB, cC = st.columns(3)
+                                cA.metric("F1-optimal threshold",
+                                          f"{opt_f1.get('threshold', 0):.3f}")
+                                cB.metric("F1 at that threshold",
+                                          f"{opt_f1.get('f1', 0):.3f}")
+                                cC.metric("Recall at that threshold",
+                                          f"{opt_f1.get('recall', 0):.3f}")
+
+                    # ---- Cost-matrix calculator -----------------------
+                    st.markdown("**Cost-matrix calculator**")
+                    st.caption(
+                        "Enter the relative cost of each error type. The "
+                        "system finds the threshold that minimizes total "
+                        "expected cost on the validation set."
+                    )
+                    ccol1, ccol2, ccol3 = st.columns([1, 1, 2])
+                    cost_fp = ccol1.number_input(
+                        "Cost of False Positive (analyst time)",
+                        min_value=0.0, value=1.0, step=1.0,
+                        help="Cost in arbitrary units of investigating a"
+                             " false alarm.",
+                    )
+                    cost_fn = ccol2.number_input(
+                        "Cost of False Negative (missed attack)",
+                        min_value=0.0, value=100.0, step=10.0,
+                        help="Cost of letting a real attack go undetected.",
+                    )
+                    if ccol3.button(
+                        "Compute optimal threshold",
+                        use_container_width=True,
+                    ):
+                        try:
+                            cost_resp = requests.post(
+                                f"{API_URL}/cost_optimal_threshold",
+                                json={"cost_fp": cost_fp, "cost_fn": cost_fn},
+                                timeout=10,
+                            )
+                            if cost_resp.status_code == 200:
+                                cost_payload = cost_resp.json()
+                                if cost_payload.get("available"):
+                                    st.success(
+                                        "Optimal threshold for cost ratio "
+                                        f"FN/FP = "
+                                        f"{cost_payload.get('ratio_fn_over_fp', 0):.1f}"
+                                    )
+                                    oA, oB, oC = st.columns(3)
+                                    oA.metric(
+                                        "Recommended threshold",
+                                        f"{cost_payload.get('optimal_threshold', 0):.3f}",
+                                    )
+                                    oB.metric(
+                                        "Precision at that t",
+                                        f"{cost_payload.get('optimal_precision', 0):.3f}",
+                                    )
+                                    oC.metric(
+                                        "Recall at that t",
+                                        f"{cost_payload.get('optimal_recall', 0):.3f}",
+                                    )
+                                    st.caption(
+                                        f"Expected total cost at this "
+                                        f"threshold: "
+                                        f"{cost_payload.get('optimal_expected_cost', 0):,.1f}"
+                                    )
+                        except requests.RequestException as e:
+                            st.error(f"Could not reach cost endpoint: {e}")
+        except requests.RequestException:
+            pass  # threshold panel is optional; never break the metrics tab
 
 
 # ----------------------------------------------------------------------

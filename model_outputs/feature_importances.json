@@ -1,177 +1,177 @@
 {
-  "model_name": "logistic_regression_baseline",
+  "model_name": "xgboost_model",
   "importances": [
     [
-      "dns_unique_resolved_computers",
-      4.639220193051531
-    ],
-    [
-      "flows_out_total_packets",
-      2.695303569411431
-    ],
-    [
-      "flows_out_total_bytes",
-      2.1358504914953405
-    ],
-    [
-      "flows_total_packets",
-      2.043200703470821
-    ],
-    [
-      "flows_total_bytes",
-      1.7049664295688998
-    ],
-    [
-      "flows_in_count",
-      1.5188519347606158
-    ],
-    [
-      "auth_dst_unique_src_users",
-      1.4892444801089215
-    ],
-    [
-      "flows_out_mean_packets",
-      1.4267742601148465
-    ],
-    [
-      "auth_dst_unique_src_computers",
-      1.1855445160572828
-    ],
-    [
-      "flows_in_unique_src_computers",
-      1.0813861545806136
-    ],
-    [
-      "flows_in_total_packets",
-      1.0560865643875208
-    ],
-    [
-      "flows_out_unique_dst_ports",
-      1.0111472049362327
-    ],
-    [
-      "flows_bytes_per_event",
-      0.9779365755768915
-    ],
-    [
-      "proc_start_end_imbalance",
-      0.972420717153959
-    ],
-    [
-      "flows_out_unique_dst_computers",
-      0.8824727231394384
-    ],
-    [
-      "flows_out_count",
-      0.8751576205198284
-    ],
-    [
-      "dns_lookup_count",
-      0.8375598000953336
-    ],
-    [
-      "auth_src_unique_dst_users",
-      0.8215433905366091
-    ],
-    [
-      "proc_unique_users",
-      0.6404607233493161
-    ],
-    [
-      "flows_in_unique_src_ports",
-      0.5366582018249465
-    ],
-    [
-      "flows_in_mean_packets",
-      0.5112216805817185
-    ],
-    [
-      "auth_src_success_count",
-      0.4542788900368635
-    ],
-    [
-      "auth_src_event_count",
-      0.44405628244016776
-    ],
-    [
       "flows_total_events",
-      0.4298860202373141
-    ],
-    [
-      "flows_out_mean_bytes",
-      0.4178879916015737
+      0.060586776584386826
     ],
     [
       "proc_end_count",
-      0.40292524340219904
+      0.054451730102300644
     ],
     [
-      "flows_out_total_duration",
-      0.34481868244452346
+      "dns_lookup_count",
+      0.045347910374403
     ],
     [
-      "auth_src_failure_count",
-      0.2330100185313128
+      "flows_total_packets",
+      0.0382591113448143
     ],
     [
-      "flows_packets_per_event",
-      0.21794572612976557
+      "dns_unique_resolved_computers",
+      0.03560011461377144
+    ],
+    [
+      "flows_total_bytes",
+      0.03287533298134804
+    ],
+    [
+      "auth_dst_unique_src_users",
+      0.03270072862505913
     ],
     [
       "auth_failure_ratio",
-      0.20351542065122014
+      0.03268469125032425
     ],
     [
-      "auth_dst_success_count",
-      0.203108826022381
+      "flows_in_unique_src_ports",
+      0.029847152531147003
     ],
     [
-      "proc_start_count",
-      0.20297453906830468
+      "auth_dst_unique_src_computers",
+      0.02938351221382618
     ],
     [
-      "auth_dst_event_count",
-      0.1996775779968848
-    ],
-    [
-      "auth_dst_failure_count",
-      0.16005092567905532
-    ],
-    [
-      "auth_src_unique_dst_computers",
-      0.15352032122486375
-    ],
-    [
-      "flows_in_mean_bytes",
-      0.13261206018546054
-    ],
-    [
-      "proc_event_count",
-      0.07749317645112741
-    ],
-    [
-      "flows_in_total_duration",
-      0.07145333599369723
-    ],
-    [
-      "auth_total_failures",
-      0.03598861924675644
-    ],
-    [
-      "proc_unique_processes",
-      0.025474002224668432
+      "flows_in_total_packets",
+      0.02746475860476494
     ],
     [
       "auth_total_successes",
-      0.014478535102049654
+      0.026152227073907852
+    ],
+    [
+      "proc_event_count",
+      0.02552575245499611
+    ],
+    [
+      "flows_out_total_bytes",
+      0.0243267510086298
+    ],
+    [
+      "auth_dst_event_count",
+      0.02304776944220066
+    ],
+    [
+      "flows_out_count",
+      0.022959847003221512
+    ],
+    [
+      "auth_src_success_count",
+      0.02258862368762493
+    ],
+    [
+      "flows_out_mean_bytes",
+      0.022158773615956306
+    ],
+    [
+      "auth_src_event_count",
+      0.021516427397727966
+    ],
+    [
+      "proc_start_end_imbalance",
+      0.021153468638658524
+    ],
+    [
+      "flows_packets_per_event",
+      0.02105986699461937
+    ],
+    [
+      "auth_dst_failure_count",
+      0.020894767716526985
+    ],
+    [
+      "flows_bytes_per_event",
+      0.020831923931837082
+    ],
+    [
+      "flows_in_total_duration",
+      0.020825762301683426
+    ],
+    [
+      "flows_in_unique_src_computers",
+      0.019732104614377022
+    ],
+    [
+      "proc_unique_users",
+      0.01969345286488533
+    ],
+    [
+      "proc_unique_processes",
+      0.019552405923604965
+    ],
+    [
+      "proc_start_count",
+      0.01937432587146759
+    ],
+    [
+      "auth_src_unique_dst_computers",
+      0.018889203667640686
+    ],
+    [
+      "auth_dst_success_count",
+      0.01883273385465145
+    ],
+    [
+      "auth_src_unique_dst_users",
+      0.018164997920393944
     ],
     [
       "auth_total_events",
-      0.013588183682317805
+      0.017199166119098663
     ],
     [
       "flows_in_total_bytes",
-      0.0009792486237925817
+      0.014576050452888012
+    ],
+    [
+      "flows_in_mean_bytes",
+      0.014548604376614094
+    ],
+    [
+      "flows_in_count",
+      0.014210537075996399
+    ],
+    [
+      "flows_out_total_packets",
+      0.01359124667942524
+    ],
+    [
+      "flows_in_mean_packets",
+      0.013439632952213287
+    ],
+    [
+      "flows_out_total_duration",
+      0.013309203088283539
+    ],
+    [
+      "flows_out_unique_dst_ports",
+      0.012828957289457321
+    ],
+    [
+      "auth_src_failure_count",
+      0.01125863566994667
+    ],
+    [
+      "flows_out_mean_packets",
+      0.011102467775344849
+    ],
+    [
+      "auth_total_failures",
+      0.010881028138101101
+    ],
+    [
+      "flows_out_unique_dst_computers",
+      0.006571564357727766
     ]
   ]
 }

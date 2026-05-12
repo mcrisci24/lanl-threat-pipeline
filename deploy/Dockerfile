@@ -21,11 +21,17 @@ WORKDIR /app
 
 # --- Install only the serving-time dependencies --------------------------
 # We avoid installing pyspark in the API image - smaller image, faster boot.
+# xgboost is REQUIRED here even if it's not used in the request path:
+# joblib.load() of an XGBClassifier pipeline needs the xgboost module
+# installed so the pickle can resolve the class. Without it, the API
+# crashes at startup with ModuleNotFoundError.
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir \
     "fastapi>=0.110" "uvicorn[standard]>=0.27" "pydantic>=2.5" \
     "scikit-learn>=1.4,<2.0" "joblib>=1.3" "numpy>=1.26" "pandas>=2.1" \
-    "mlflow>=2.10"
+    "mlflow>=2.10" \
+    "xgboost>=2.0" \
+    "lightgbm>=4.0"
 
 # --- Copy the code + the trained artifacts -------------------------------
 # train_model.py writes ./model_outputs/ ; we bake that into the image so

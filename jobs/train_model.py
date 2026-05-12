@@ -72,6 +72,7 @@ from sklearn.metrics import (
     average_precision_score,
     classification_report,
     f1_score,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -79,6 +80,24 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+
+# XGBoost is optional - if it isn't installed we skip training that model
+# rather than fail. The LR and RF still cover the rubric requirements.
+try:
+    from xgboost import XGBClassifier
+    _XGBOOST_OK = True
+except ImportError:
+    _XGBOOST_OK = False
+
+# LightGBM is also optional. Same reason; same fallback behavior.
+# Gives us a second strong gradient-boosted model so MLflow has 4 to
+# choose between, and the cost-aware threshold comparison is more
+# interesting on the slide.
+try:
+    from lightgbm import LGBMClassifier
+    _LIGHTGBM_OK = True
+except ImportError:
+    _LIGHTGBM_OK = False
 
 from config.settings import settings
 
@@ -135,6 +154,13 @@ USE_LOCAL_GOLD_FALLBACK = os.getenv("LANL_USE_LOCAL_GOLD", "0") == "1"
 MLFLOW_REGISTERED_MODEL_NAME = os.getenv(
     "MLFLOW_REGISTERED_MODEL_NAME", "lanl_threat_predictor"
 )
+
+# Memory-safety subsample. On a laptop with limited RAM, the full 13.9 M-row
+# gold table can OOM during train_test_split. Setting LANL_TRAIN_MAX_ROWS to,
+# say, 3000000 keeps ALL positives (only 596 of them) and randomly samples
+# negatives down to that budget. The model trains fine because the rare
+# positive class is preserved in full and negatives are still abundant.
+MAX_ROWS_FOR_TRAINING = int(os.getenv("LANL_TRAIN_MAX_ROWS", "0"))
 
 
 # ============================================================
@@ -397,6 +423,16 @@ def evaluate_model(
         )
         write_json(model_dir / "metrics.json", metrics)
 
+        # ---- Threshold analysis on the validation set --------------
+        # Compute the precision / recall / F1 curve so the API can serve
+        # threshold-tuning queries (operationally correct cutoff under a
+        # given FP-vs-FN cost ratio). We compute it from validation, not
+        # test - test is reserved for the headline metric only.
+        threshold_payload = _build_threshold_payload(
+            y_true=y_valid.values, y_prob=valid_prob,
+        )
+        write_json(model_dir / "threshold_analysis.json", threshold_payload)
+
         model_path = model_dir / f"{model_name}.joblib"
         joblib.dump(pipeline, model_path)
 
@@ -451,6 +487,79 @@ def _safe_pr(y_true, y_prob) -> float:
         return float("nan")
 
 
+def _build_threshold_payload(y_true, y_prob) -> dict:
+    """Compute the precision/recall/F1 curve at sampled thresholds.
+
+    The /threshold_analysis endpoint serves this payload to the UI. With
+    it, an operator can answer "what threshold should I use?" under any
+    operational constraint:
+      - maximize F1
+      - meet a target precision floor
+      - meet a target recall floor
+      - minimize expected cost under FP/FN cost weights
+
+    Why validation (not test)?  Test is held out for the headline ROC AUC /
+    PR AUC numbers. We never tune thresholds on test - that's leakage.
+    """
+    import numpy as _np  # local alias keeps module-level import clean
+
+    y_true = _np.asarray(y_true).astype(int)
+    y_prob = _np.asarray(y_prob).astype(float)
+
+    n_pos = int(y_true.sum())
+    n_total = int(len(y_true))
+
+    if n_pos == 0:
+        # The pathological no-positives split. Return an empty curve so
+        # the API surface stays consistent; the UI degrades gracefully.
+        return {
+            "n_total": n_total,
+            "n_positives": 0,
+            "thresholds": [], "precisions": [], "recalls": [], "f1s": [],
+            "optimal_f1": None,
+            "note": "Validation set has no positives; no threshold curve.",
+        }
+
+    precisions, recalls, sk_thresholds = precision_recall_curve(y_true, y_prob)
+    # precision_recall_curve returns N+1 precisions/recalls with N thresholds;
+    # we trim the last point so the three vectors align.
+    precisions = precisions[:-1]
+    recalls = recalls[:-1]
+
+    # Subsample to keep the JSON payload small (UI only needs ~80 points).
+    n_pts = len(sk_thresholds)
+    if n_pts > 200:
+        idx = _np.linspace(0, n_pts - 1, 200).astype(int)
+        sk_thresholds = sk_thresholds[idx]
+        precisions = precisions[idx]
+        recalls = recalls[idx]
+
+    f1s = _np.where(
+        (precisions + recalls) > 0,
+        2 * precisions * recalls / (precisions + recalls + 1e-12),
+        0.0,
+    )
+
+    optimal_f1_idx = int(_np.nanargmax(f1s))
+    optimal_f1 = {
+        "threshold": float(sk_thresholds[optimal_f1_idx]),
+        "precision": float(precisions[optimal_f1_idx]),
+        "recall":    float(recalls[optimal_f1_idx]),
+        "f1":        float(f1s[optimal_f1_idx]),
+    }
+
+    return {
+        "n_total":    n_total,
+        "n_positives": n_pos,
+        "positive_rate": n_pos / n_total,
+        "thresholds": [float(t) for t in sk_thresholds],
+        "precisions": [float(p) for p in precisions],
+        "recalls":    [float(r) for r in recalls],
+        "f1s":        [float(f) for f in f1s],
+        "optimal_f1": optimal_f1,
+    }
+
+
 def _extract_importances(
     pipeline: Pipeline, feature_cols: list[str]
 ) -> list[tuple[str, float]] | None:
@@ -488,6 +597,25 @@ def main() -> None:
     logger.info("Gold shape: %s", df.shape)
 
     df = ensure_target(df)
+
+    # --- Memory-safety subsample (opt-in via LANL_TRAIN_MAX_ROWS) -------
+    # Stratified by class: keep ALL positives, sample negatives to fit budget.
+    if MAX_ROWS_FOR_TRAINING > 0 and len(df) > MAX_ROWS_FOR_TRAINING:
+        target_col = settings.target_column
+        pos_df = df[df[target_col] == 1]
+        neg_df = df[df[target_col] == 0]
+        n_neg_keep = max(MAX_ROWS_FOR_TRAINING - len(pos_df), 1000)
+        n_neg_keep = min(n_neg_keep, len(neg_df))
+        neg_sampled = neg_df.sample(n=n_neg_keep, random_state=RANDOM_STATE)
+        df = (
+            pd.concat([pos_df, neg_sampled])
+              .sample(frac=1.0, random_state=RANDOM_STATE)
+              .reset_index(drop=True)
+        )
+        logger.info(
+            "LANL_TRAIN_MAX_ROWS=%d -> subsampled to %d rows (%d pos kept, %d neg sampled)",
+            MAX_ROWS_FOR_TRAINING, len(df), len(pos_df), len(neg_sampled),
+        )
 
     # --- Split (stratified random by default, see SPLIT_STRATEGY) ----
     train_df, valid_df, test_df = split_for_strategy(df)
@@ -537,6 +665,13 @@ def main() -> None:
         remainder="drop",
     )
 
+    # Class-imbalance weight for XGBoost (it doesn't accept 'balanced').
+    # scale_pos_weight = #negatives / #positives gives equivalent treatment
+    # to sklearn's class_weight='balanced'.
+    n_pos_train = int(y_train.sum())
+    n_neg_train = int(len(y_train) - n_pos_train)
+    xgb_scale_pos_weight = (n_neg_train / max(n_pos_train, 1)) if n_pos_train else 1.0
+
     models = {
         "logistic_regression_baseline": LogisticRegression(
             max_iter=2000,
@@ -552,6 +687,55 @@ def main() -> None:
             n_jobs=-1,
         ),
     }
+    # XGBoost is added only if the library is available. It often beats the
+    # other two on tabular data with strong non-linear interactions, and the
+    # API serves whichever model wins on validation F1 / PR AUC.
+    if _XGBOOST_OK:
+        models["xgboost_model"] = XGBClassifier(
+            n_estimators=400,
+            max_depth=6,
+            learning_rate=0.08,
+            subsample=0.85,
+            colsample_bytree=0.85,
+            reg_lambda=1.0,
+            eval_metric="logloss",
+            scale_pos_weight=xgb_scale_pos_weight,
+            tree_method="hist",
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+        )
+        logger.info(
+            "XGBoost enabled with scale_pos_weight=%.2f (n_pos=%d, n_neg=%d)",
+            xgb_scale_pos_weight, n_pos_train, n_neg_train,
+        )
+    else:
+        logger.warning("xgboost package not available - skipping XGBoost model.")
+
+    # LightGBM is a peer of XGBoost. Histogram-based gradient boosting with
+    # leaf-wise growth - often slightly different bias/variance trade-offs
+    # than XGBoost on the same data. Adding it lets MLflow pick the better
+    # of the two boosting variants without us guessing.
+    if _LIGHTGBM_OK:
+        models["lightgbm_model"] = LGBMClassifier(
+            n_estimators=400,
+            num_leaves=63,
+            learning_rate=0.08,
+            max_depth=-1,            # leaf-wise, controlled by num_leaves
+            subsample=0.85,
+            colsample_bytree=0.85,
+            reg_lambda=1.0,
+            objective="binary",
+            class_weight="balanced",  # built-in alternative to scale_pos_weight
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+            verbose=-1,               # suppress per-iteration chatter
+        )
+        logger.info(
+            "LightGBM enabled with class_weight='balanced' (n_pos=%d, n_neg=%d)",
+            n_pos_train, n_neg_train,
+        )
+    else:
+        logger.warning("lightgbm package not available - skipping LightGBM model.")
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
@@ -577,6 +761,37 @@ def main() -> None:
     write_json(BEST_MODEL_SUMMARY_FILE, best)
     logger.info("BEST MODEL: %s (valid_f1=%.6f)",
                 best["name"], best["metrics"].get("valid_f1", float("nan")))
+
+    # --- Sidecar linear model for /counterfactual ----------------------
+    # Counterfactual explanations have a closed-form solution only for
+    # linear models (delta = needed_logodds_change / coefficient). If the
+    # winning model is non-linear (RF or XGBoost), we still want the
+    # /counterfactual endpoint to work - so we copy the LR pipeline to a
+    # known location the API can load as a fallback.
+    try:
+        lr_result = next(
+            (r for r in results if r["name"] == "logistic_regression_baseline"),
+            None,
+        )
+        if lr_result is not None:
+            lr_src = Path(lr_result["model_path"])
+            lr_sidecar = LOCAL_MODEL_DIR / "linear_sidecar.joblib"
+            if lr_src.exists():
+                import shutil
+                shutil.copy2(lr_src, lr_sidecar)
+                logger.info("Saved linear sidecar at %s", lr_sidecar)
+                write_json(
+                    LOCAL_MODEL_DIR / "linear_sidecar.json",
+                    {
+                        "name": lr_result["name"],
+                        "model_path": str(lr_sidecar),
+                        "purpose": (
+                            "counterfactual fallback for non-linear served models"
+                        ),
+                    },
+                )
+    except Exception as e:
+        logger.warning("Could not save linear sidecar: %s", e)
 
     # --- Save feature importances for the UI ------------------------
     # The Streamlit "Metrics" tab reads this file to show which behaviors

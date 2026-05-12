@@ -1,0 +1,19 @@
+# =============================================================================
+# Streamlit theme — cyber-security operations dashboard
+# =============================================================================
+# Dark, high-contrast SOC look. Mint-green accent reads as "armed / active" and
+# stays legible against the near-black background. Streamlit Cloud picks this
+# file up automatically; locally it applies when you run `streamlit run`.
+# =============================================================================
+
+[theme]
+base                     = "dark"
+primaryColor             = "#10F2A2"   # cyber-mint accent (links, focus, buttons)
+backgroundColor          = "#0A0E1A"   # main canvas, near-black with a blue tint
+secondaryBackgroundColor = "#111827"   # cards, sidebar, expander panels
+textColor                = "#E5E7EB"   # primary text — high contrast on the canvas
+font                     = "sans serif"
+
+[server]
+# Don't open the browser automatically on `streamlit run` (we open it ourselves).
+headless = true

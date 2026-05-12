@@ -34,10 +34,30 @@ OUT = REPO_ROOT / "WRITEUP.pdf"
 
 
 def _strip_markdown(line: str) -> str:
-    """Very small markdown-to-text converter for the bits we use in WRITEUP.md."""
-    line = re.sub(r"\*\*(.+?)\*\*", r"\1", line)   # bold
-    line = re.sub(r"`(.+?)`", r"\1", line)         # inline code
-    line = re.sub(r"\[(.+?)\]\((.+?)\)", r"\1", line)  # links -> just the text
+    """Convert a tiny subset of Markdown into reportlab Paragraph HTML.
+
+    reportlab's Paragraph supports a small HTML-like markup. We use:
+      <b>...</b>                  for bold
+      <font face="Courier">...</font>   for inline code
+
+    This preserves the structure of the write-up - bold numbered step
+    labels in the architecture section stand out, and inline code
+    (column names, paths) renders in a monospace font. We HTML-escape
+    the raw text first so any literal '<', '>', '&' in the source
+    don't conflict with our injected tags.
+    """
+    # 1) Escape HTML-special characters so they survive intact.
+    line = (
+        line.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+    )
+    # 2) Bold (**text**) -> <b>text</b>
+    line = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", line)
+    # 3) Inline code (`text`) -> monospace
+    line = re.sub(r"`(.+?)`", r'<font face="Courier">\1</font>', line)
+    # 4) Markdown links [text](url) -> just the text
+    line = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", line)
     return line
 
 
@@ -63,18 +83,21 @@ def main() -> int:
         return 1
 
     # --- Tight single-page layout -----------------------------------
+    # Body 10pt is the minimum the spec allows. Leading is set tightly to
+    # 11.5pt so the longer end-to-end description in section 3 still fits
+    # without crossing the second page.
     styles = getSampleStyleSheet()
     body = ParagraphStyle(
         "body", parent=styles["BodyText"],
-        fontName="Helvetica", fontSize=10, leading=12, spaceAfter=4,
+        fontName="Helvetica", fontSize=10, leading=11.5, spaceAfter=2,
     )
     h1 = ParagraphStyle(
         "h1", parent=styles["Heading1"],
-        fontName="Helvetica-Bold", fontSize=13, leading=15, spaceAfter=4, spaceBefore=2,
+        fontName="Helvetica-Bold", fontSize=13, leading=15, spaceAfter=3, spaceBefore=1,
     )
     h2 = ParagraphStyle(
         "h2", parent=styles["Heading2"],
-        fontName="Helvetica-Bold", fontSize=11, leading=13, spaceAfter=2, spaceBefore=4,
+        fontName="Helvetica-Bold", fontSize=11, leading=13, spaceAfter=1, spaceBefore=4,
     )
 
     # --- Parse the markdown ----------------------------------------

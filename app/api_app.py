@@ -128,6 +128,32 @@ logger.info(
     model_path.name,
 )
 
+# Linear sidecar - lets /counterfactual work even when the served model is
+# non-linear (RF or XGBoost). Counterfactual explanations have a closed-form
+# solution only for linear models, so we keep a copy of the LR pipeline at
+# model_outputs/linear_sidecar.joblib and load it here at startup.
+_linear_sidecar = None
+_linear_sidecar_path = LOCAL_MODEL_DIR / "linear_sidecar.joblib"
+if _linear_sidecar_path.exists():
+    try:
+        _linear_sidecar = joblib.load(_linear_sidecar_path)
+        logger.info("Loaded linear sidecar from %s (for /counterfactual)",
+                    _linear_sidecar_path.name)
+    except Exception as e:
+        logger.warning("Failed to load linear sidecar: %s", e)
+
+# Per-model threshold-analysis payload (precision/recall/F1 curves) saved
+# by train_model.py. Used by /threshold_analysis and /cost_optimal_threshold.
+_threshold_path = LOCAL_MODEL_DIR / best_model_summary["name"] / "threshold_analysis.json"
+_threshold_payload: dict[str, Any] = {}
+if _threshold_path.exists():
+    try:
+        _threshold_payload = json.loads(_threshold_path.read_text(encoding="utf-8"))
+        logger.info("Loaded threshold analysis for served model (%d points)",
+                    len(_threshold_payload.get("thresholds", [])))
+    except Exception as e:
+        logger.warning("Failed to load threshold analysis: %s", e)
+
 
 # ============================================================
 # REQUEST / RESPONSE SCHEMAS
@@ -320,6 +346,83 @@ def explain(payload: dict[str, Any]) -> dict[str, Any]:
             "note": "Served model is not a Pipeline with named 'preprocessor' + 'model' steps.",
         }
 
+    # ---- XGBoost branch: exact TreeSHAP via booster.predict(pred_contribs=True)
+    # XGBClassifier exposes the underlying Booster. Calling
+    # booster.predict(dmatrix, pred_contribs=True) returns per-feature SHAP
+    # contributions in log-odds units - the SAME format as the linear
+    # decomposition below. So the UI rendering code doesn't need to change.
+    if estimator.__class__.__name__ == "XGBClassifier":
+        try:
+            import xgboost as xgb
+            X_scaled = np.asarray(preprocessor.transform(X))
+            booster = estimator.get_booster()
+            dmatrix = xgb.DMatrix(X_scaled, feature_names=feature_names)
+            shap_values = booster.predict(dmatrix, pred_contribs=True)[0]
+            # shap_values has shape (n_features + 1,); last col is the bias.
+            bias = float(shap_values[-1])
+            feature_contribs = shap_values[:-1]
+            contributions = [
+                {
+                    "feature": name,
+                    "raw_value": float(features_dict.get(name, 0)),
+                    "scaled_value": float(X_scaled[0][i]),
+                    "coefficient": float("nan"),  # not a linear coefficient
+                    "contribution": float(feature_contribs[i]),
+                }
+                for i, name in enumerate(feature_names)
+            ]
+            contributions.sort(key=lambda c: abs(c["contribution"]), reverse=True)
+            return {
+                "prediction": pred,
+                "probability_redteam_next_window": prob,
+                "model_name": best_model_summary["name"],
+                "method": "xgboost_treeshap",
+                "intercept": bias,
+                "contributions": contributions,
+                "note": "Exact TreeSHAP contributions (XGBoost pred_contribs).",
+            }
+        except Exception as exc:
+            logger.warning("TreeSHAP path failed, falling back to unsupported: %s", exc)
+            # fall through to the unsupported response below
+
+    # ---- LightGBM branch: exact TreeSHAP via booster.predict(pred_contrib=True)
+    # LGBMClassifier exposes its underlying Booster via .booster_. The API
+    # differs slightly from XGBoost: LightGBM uses pred_contrib (no trailing
+    # S), takes a plain numpy array (no DMatrix), and returns the bias in
+    # the LAST column - same shape and semantics as XGBoost's output.
+    if estimator.__class__.__name__ == "LGBMClassifier":
+        try:
+            X_scaled = np.asarray(preprocessor.transform(X))
+            booster = estimator.booster_
+            shap_values = np.asarray(
+                booster.predict(X_scaled, pred_contrib=True)
+            )[0]
+            bias = float(shap_values[-1])
+            feature_contribs = shap_values[:-1]
+            contributions = [
+                {
+                    "feature": name,
+                    "raw_value": float(features_dict.get(name, 0)),
+                    "scaled_value": float(X_scaled[0][i]),
+                    "coefficient": float("nan"),
+                    "contribution": float(feature_contribs[i]),
+                }
+                for i, name in enumerate(feature_names)
+            ]
+            contributions.sort(key=lambda c: abs(c["contribution"]), reverse=True)
+            return {
+                "prediction": pred,
+                "probability_redteam_next_window": prob,
+                "model_name": best_model_summary["name"],
+                "method": "lightgbm_treeshap",
+                "intercept": bias,
+                "contributions": contributions,
+                "note": "Exact TreeSHAP contributions (LightGBM pred_contrib).",
+            }
+        except Exception as exc:
+            logger.warning("LightGBM TreeSHAP path failed: %s", exc)
+            # fall through to the unsupported response below
+
     if not hasattr(estimator, "coef_"):
         return {
             "prediction": pred,
@@ -328,7 +431,7 @@ def explain(payload: dict[str, Any]) -> dict[str, Any]:
             "method": "unsupported",
             "intercept": None,
             "contributions": [],
-            "note": "Per-row decomposition is only available for linear models.",
+            "note": "Per-row decomposition is only available for linear or XGBoost models.",
         }
 
     # Linear-model decomposition.
@@ -418,25 +521,41 @@ def counterfactual(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}")
 
     # --- Pipeline introspection ----------------------------------
+    # If the SERVED model is linear we use it directly. If not (RF or
+    # XGBoost), we fall back to the linear sidecar (saved by train_model.py
+    # at model_outputs/linear_sidecar.joblib). That keeps /counterfactual
+    # functional regardless of which model wins on validation F1.
+    used_sidecar = False
     try:
         preprocessor = model.named_steps["preprocessor"]
         estimator = model.named_steps["model"]
     except (AttributeError, KeyError):
-        return {
-            "current_probability": current_prob,
-            "target_probability": target_probability,
-            "method": "unsupported",
-            "interventions": [],
-            "note": "Served model is not a Pipeline with 'preprocessor' + 'model' steps.",
-        }
+        preprocessor = None
+        estimator = None
 
-    if not hasattr(estimator, "coef_"):
+    if estimator is None or not hasattr(estimator, "coef_"):
+        # Try the sidecar LR
+        if _linear_sidecar is not None:
+            try:
+                preprocessor = _linear_sidecar.named_steps["preprocessor"]
+                estimator = _linear_sidecar.named_steps["model"]
+                used_sidecar = True
+                logger.info("Using linear sidecar for /counterfactual")
+            except (AttributeError, KeyError):
+                preprocessor = None
+                estimator = None
+
+    if estimator is None or not hasattr(estimator, "coef_"):
         return {
             "current_probability": current_prob,
             "target_probability": target_probability,
             "method": "unsupported",
             "interventions": [],
-            "note": "Counterfactuals only available for linear models.",
+            "note": (
+                "Counterfactuals require a linear model. The served model is "
+                "non-linear and no linear sidecar is available. Retrain to "
+                "produce model_outputs/linear_sidecar.joblib."
+            ),
         }
 
     # Nothing to do if we're already at or below target.
@@ -530,7 +649,124 @@ def counterfactual(payload: dict[str, Any]) -> dict[str, Any]:
         "current_logits": current_logits,
         "target_logits": target_logits,
         "all_feasible": bool(feasible),
+        "via_linear_sidecar": used_sidecar,
         "interventions": pool[:10],
+    }
+
+
+# ============================================================
+# THRESHOLD TUNING — supports operationally-correct cutoff selection
+# ============================================================
+@app.get("/threshold_analysis")
+def threshold_analysis() -> dict[str, Any]:
+    """Return the precision / recall / F1 curve for the served model.
+
+    The curve is computed at training time on the VALIDATION set (never on
+    test, which is held out for the headline metrics). Clients use it to
+    pick an operationally-correct decision threshold rather than the
+    default 0.5.
+
+    The payload also includes the F1-optimal threshold so the UI can
+    surface it as a "recommended" cutoff.
+    """
+    if not _threshold_payload:
+        return {
+            "model_name": best_model_summary["name"],
+            "available": False,
+            "note": (
+                "No threshold_analysis.json was saved for this model. "
+                "Retrain with the latest train_model.py."
+            ),
+        }
+    return {
+        "model_name": best_model_summary["name"],
+        "available": True,
+        **_threshold_payload,
+    }
+
+
+@app.post("/cost_optimal_threshold")
+def cost_optimal_threshold(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return the threshold that MINIMIZES expected operational cost.
+
+    Inputs (POST body):
+        cost_fp: cost of a false positive (analyst chases nothing)
+        cost_fn: cost of a false negative (real attack missed)
+
+    Math:
+        At each threshold t, the model produces TP(t), FP(t), FN(t), TN(t)
+        on the validation set. Total expected cost(t) =
+            FP(t) * cost_fp  +  FN(t) * cost_fn
+        We pick the t that minimizes this.
+
+    This is the standard cost-sensitive thresholding pattern - "raise the
+    threshold until you stop crying about false alarms; lower it until you
+    stop missing real attacks. The optimal balance depends on what you
+    care about."
+    """
+    if not _threshold_payload:
+        return {"available": False, "note": "No threshold curve available."}
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Payload must be a JSON object.")
+
+    try:
+        cost_fp = float(payload.get("cost_fp", 1.0))
+        cost_fn = float(payload.get("cost_fn", 100.0))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="cost_fp and cost_fn must be numeric.",
+        )
+    if cost_fp < 0 or cost_fn < 0:
+        raise HTTPException(
+            status_code=400, detail="Costs must be non-negative.",
+        )
+
+    thresholds = _threshold_payload.get("thresholds", [])
+    precisions = _threshold_payload.get("precisions", [])
+    recalls = _threshold_payload.get("recalls", [])
+    n_pos = int(_threshold_payload.get("n_positives", 0))
+    n_total = int(_threshold_payload.get("n_total", 0))
+    n_neg = n_total - n_pos
+
+    if not thresholds or n_pos == 0:
+        return {"available": False, "note": "Threshold curve is empty."}
+
+    # Recover TP, FP, FN at each threshold from precision + recall.
+    # TP = recall * P_total
+    # FP = TP * (1 - precision) / precision   (when precision > 0)
+    # FN = P_total - TP
+    points = []
+    best_idx = -1
+    best_cost = float("inf")
+    for i, (t, p, r) in enumerate(zip(thresholds, precisions, recalls)):
+        tp = r * n_pos
+        fp = (tp * (1.0 - p) / p) if p > 0 else (n_neg * 1.0)
+        fn = n_pos - tp
+        expected_cost = fp * cost_fp + fn * cost_fn
+        points.append({
+            "threshold": float(t),
+            "precision": float(p),
+            "recall": float(r),
+            "tp": float(tp), "fp": float(fp), "fn": float(fn),
+            "expected_cost": float(expected_cost),
+        })
+        if expected_cost < best_cost:
+            best_cost = expected_cost
+            best_idx = i
+
+    return {
+        "available": True,
+        "model_name": best_model_summary["name"],
+        "cost_fp": cost_fp,
+        "cost_fn": cost_fn,
+        "ratio_fn_over_fp": (cost_fn / cost_fp) if cost_fp > 0 else None,
+        "optimal_threshold": points[best_idx]["threshold"] if best_idx >= 0 else None,
+        "optimal_expected_cost": points[best_idx]["expected_cost"] if best_idx >= 0 else None,
+        "optimal_precision":     points[best_idx]["precision"] if best_idx >= 0 else None,
+        "optimal_recall":        points[best_idx]["recall"]    if best_idx >= 0 else None,
+        "n_points": len(points),
     }
 
 

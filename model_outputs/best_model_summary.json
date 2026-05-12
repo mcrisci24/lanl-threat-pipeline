@@ -1,17 +1,17 @@
 {
-  "name": "logistic_regression_baseline",
+  "name": "xgboost_model",
   "metrics": {
-    "valid_precision": 0.00017482186073648447,
-    "valid_recall": 0.6974789915966386,
-    "valid_f1": 0.00034955610586075034,
-    "valid_roc_auc": 0.8015659446956884,
-    "valid_pr_auc": 0.0006575564208122457,
-    "test_precision": 0.00017882651934166596,
-    "test_recall": 0.7142857142857143,
-    "test_f1": 0.0003575635201076897,
-    "test_roc_auc": 0.8200758350165872,
-    "test_pr_auc": 0.0011099908328513883
+    "valid_precision": 0.0007040313446998684,
+    "valid_recall": 0.19327731092436976,
+    "valid_f1": 0.0014029522996218129,
+    "valid_roc_auc": 0.8440194081139117,
+    "valid_pr_auc": 0.0017371870712325473,
+    "test_precision": 0.0009246132034765456,
+    "test_recall": 0.25210084033613445,
+    "test_f1": 0.0018424689083371719,
+    "test_roc_auc": 0.8792066064591125,
+    "test_pr_auc": 0.03542256788534423
   },
-  "model_path": "C:\\Users\\markc\\Documents\\DistributedCompProject2\\LANL\\model_outputs\\logistic_regression_baseline\\logistic_regression_baseline.joblib",
-  "mlflow_run_id": "7b46730c751b45c09395fa763bdbf258"
+  "model_path": "C:\\Users\\markc\\Documents\\DistributedCompProject2\\LANL\\model_outputs\\xgboost_model\\xgboost_model.joblib",
+  "mlflow_run_id": "56766c72e3ff4493ad8434e77f37ea02"
 }
