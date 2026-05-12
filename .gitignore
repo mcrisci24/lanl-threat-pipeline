@@ -63,3 +63,5 @@ dq_reports/
 .DS_Store
 Thumbs.db
 .claude/
+~$*
+desktop.ini

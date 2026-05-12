@@ -39,3 +39,7 @@ pytest>=8.0
 
 # --- Write-up PDF generator ---
 reportlab>=4.0
+
+# --- PowerPoint generator (for the presentation deck) ---
+python-pptx>=1.0
+matplotlib>=3.8
