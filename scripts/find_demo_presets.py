@@ -106,17 +106,31 @@ def main() -> int:
     target_high = 0.75
     high_idx = (df["__p"] - target_high).abs().idxmin()
 
-    # MEDIUM: the row whose probability is closest to ~0.20 - a clear
-    # "uncertain / borderline" prediction.
-    target_med = 0.20
-    med_idx = (df["__p"] - target_med).abs().idxmin()
+    # MEDIUM: the row whose probability is closest to ~0.25 - a clear
+    # "uncertain / borderline" prediction.  We target 0.25 (not 0.20)
+    # so the demo shows a more legible "amber zone" reading -- 17% on
+    # screen tends to feel low to a non-ML audience, whereas a quarter-
+    # chance lands as a clean "yeah, this needs a second look."
+    #
+    # We also require >=3 non-zero features (same as LOW) because the
+    # gold table has a degenerate cluster of near-empty rows that the
+    # model defaults to ~0.231.  Picking "closest to 0.25" without the
+    # filter lands on a row with one DNS lookup and nothing else, which
+    # reads as "the model is freaking out at empty input."  The filter
+    # forces a row with visible authentication / flow / process activity.
+    target_med = 0.25
+    nonzero_per_row = (X > 0).sum(axis=1)
+    med_candidates = df[nonzero_per_row >= 3]
+    if len(med_candidates) > 0:
+        med_idx = (med_candidates["__p"] - target_med).abs().idxmin()
+    else:
+        med_idx = (df["__p"] - target_med).abs().idxmin()
 
     # LOW: target ~0.07 probability (5-10% range). A row that has visible
     # activity but the model still rates as low risk. Pure-zero rows
     # produce P=0.000 which reads as "empty input" not "low risk" in a
     # demo - we filter those out by requiring at least 3 non-zero features.
     target_low = 0.07
-    nonzero_per_row = (X > 0).sum(axis=1)
     candidates = df[nonzero_per_row >= 3]
     if len(candidates) > 0:
         low_idx = (candidates["__p"] - target_low).abs().idxmin()
