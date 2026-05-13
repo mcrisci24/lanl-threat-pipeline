@@ -58,17 +58,17 @@ Confirm visually:
 - Dark cyber theme renders (navy background, mint-green accents)
 - Sidebar shows green `[ ONLINE ]` API status badge
 - The animated pulsing dot is in the header banner
-- Four tabs: **Predict / Model metrics / Architecture / How it works**
+- Five tabs: **Predict / Model metrics / Architecture / How it works / Live monitor**
 
 ### 1.4 — Pre-click the preset dropdown
 
-Open the sidebar **Scenario** dropdown once to confirm the new presets
-are there:
+Open the sidebar **Scenario** dropdown once to confirm the calibrated
+presets are present:
 
 ```
-Demo HIGH risk - stealthy low-volume (real row, P=0.990)
-Demo MEDIUM risk - sparse DNS (real row, P=0.231)
-Demo LOW risk - busy admin host (real row, P=0.000)
+Demo HIGH risk - real row (P=0.745)
+Demo MEDIUM risk - real row (P=0.275)
+Demo LOW risk - real row (P=0.072)
 Quiet workstation
 Busy admin host
 Suspicious - failed-logon storm
@@ -76,6 +76,17 @@ Suspicious - lateral movement
 ```
 
 Close the dropdown without picking anything. Leave it at `(choose...)`.
+
+### 1.4b — Smoke-test the Live monitor
+
+Click the **Live monitor** tab once. Confirm:
+- The intro caption renders ("...streaming SIMULATOR, not a Kinesis
+  consumer...")
+- Four control buttons: **Start stream / Pause / Reset / Inject
+  HIGH-risk row**
+- Two sliders: pool size + alert threshold
+
+Don't click Start yet — that's the live demo. Just verify the tab loads.
 
 ### 1.5 — Open backup tabs
 
@@ -100,30 +111,40 @@ can see speaker notes. Move to slide 1.
 
 ---
 
-## 2. The demo arc — 4.5 minutes total
+## 2. The demo arc — 5.5 minutes total
 
 This is the high-level shape. Memorize this rhythm; details come in § 3.
 
 ```
-0:00 - 0:20   Open with the WOW preset (HIGH risk).
-              "The model says 99% risk on a host with almost no activity."
-0:20 - 1:00   Pivot to LOW preset. Counterintuitive demonstration:
-              the noisy host is benign; the quiet host was the threat.
-1:00 - 1:30   Show MEDIUM preset. The uncertainty zone.
+0:00 - 0:20   Open with the HIGH-risk preset.
+              "The model rates this host at 74.5% risk on what looks
+               like quiet, focused activity - 4 auth events, 12 outbound
+               flows. That's the attacker fingerprint."
+0:20 - 1:00   Pivot to LOW preset. The counterintuitive moment:
+              7 successful auths + 10 process events looks busy,
+              but the model rates it at 7.2% - this is admin housekeeping,
+              not a threat.
+1:00 - 1:30   Show MEDIUM preset (27.5%). The uncertainty zone:
+              15 auth attempts to 6 destinations with 2 user accounts -
+              the lateral-movement signature, but borderline.
 1:30 - 2:00   Scroll down. Walk through the explainer panel ('Why this
               prediction?') and the counterfactual table ('How to lower').
 2:00 - 3:30   Switch to Model metrics tab. The threshold-slider showcase.
               Drag through four threshold values: 0.5, 0.1, 0.01, 0.8.
 3:30 - 4:00   Cost-matrix calculator: 100 FP, 100000 FN, hit Compute.
               Land the "model is an estimator, system is the tool" line.
-4:00 - 4:30   Close on the Architecture tab. Re-state the rubric story:
+4:00 - 5:00   THE NEW GRAND FINALE: Click Live monitor tab.
+              Click Start stream. Watch the chart move. Inject HIGH-risk.
+              "This isn't a calculator - it's a scoring engine under load."
+5:00 - 5:30   Close on the Architecture tab. Re-state the rubric story:
               three distributed stages, four models in MLflow, two XAI
-              endpoints, one live URL.
+              endpoints, one live URL, one streaming simulator.
 ```
 
-If you only have **3 minutes**: skip step 4 (cost-matrix). If you only
-have **2 minutes**: skip steps 3, 4, and only do HIGH preset + threshold
-slider.
+If you only have **4 minutes**: skip step 4 (cost-matrix) and shorten
+the threshold-slider showcase. **Always keep the Live monitor moment**
+— it's the visual peak. If you only have **2 minutes**: HIGH preset
++ Live monitor (Start + Inject) + Architecture close.
 
 ---
 
