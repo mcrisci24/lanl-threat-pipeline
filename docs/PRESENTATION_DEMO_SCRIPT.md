@@ -14,7 +14,7 @@
 3. [Step-by-step demo script (click + speak)](#3-step-by-step-demo-script-click--speak)
 4. [The threshold-slider deep-dive (90-second showcase)](#4-the-threshold-slider-deep-dive-90-second-showcase)
 5. [Backup plans if something fails](#5-backup-plans-if-something-fails)
-6. [Q&A — twelve anticipated questions and answers](#6-qa--twelve-anticipated-questions-and-answers)
+6. [Q&A — fourteen anticipated questions and answers](#6-qa--fourteen-anticipated-questions-and-answers)
 7. [Delivery notes (tone, body language, recovery)](#7-delivery-notes-tone-body-language-recovery)
 8. [The one-sentence summary if you have 60 seconds](#8-the-one-sentence-summary-if-you-have-60-seconds)
 
@@ -167,17 +167,18 @@ recommender. Let me show you what that means."*
 ### Step 2 — Pick the HIGH-risk preset (20 seconds)
 
 **In the sidebar, click the Scenario dropdown.**
-**Pick "Demo HIGH risk - stealthy low-volume (real row, P=0.990)".**
+**Pick "Demo HIGH risk - real row (P=0.745)".**
 
 *Wait for the form to populate. Scroll up so the user sees the input
 form with the values filled in.*
 
-*"This is a real row from the LANL gold table, picked because the
-model rates it as 99% probability of red-team activity in the next
-hour. Look at the values: just one authentication event, six outbound
-network flows totaling under a kilobyte. To a human analyst, this
-looks like a quiet workstation. The model says 'this is the most
-dangerous host in the dataset.'"*
+*"This is a real row from the LANL gold table — the model rates it
+at 74.5% probability of red-team activity in the next hour. Look at
+the values: four successful authentication events to a single
+destination host, twelve outbound network flows totaling 1,824 bytes
+— under 2 KB. To a human analyst this looks like a quiet workstation
+doing nothing unusual. The model says: this is what the
+reconnaissance phase of a real attack looks like."*
 
 **Scroll down to the bottom of the input form. Click "Predict
 next-window risk".**
@@ -187,67 +188,76 @@ next-window risk".**
 **The right column populates. Point at the verdict card.**
 
 *"There's the answer. 'High predicted risk.' The Plotly gauge below
-shows the needle in the red zone at around 99%. The probability split
-chart shows almost all the probability mass on 'Red-team activity in
-the next window.'"*
+shows the needle deep in the red zone — around 74%. The probability
+split chart shows the majority of probability mass on 'Red-team
+activity in the next window.'"*
 
 **Scroll down past the verdict. Point at the 'Why this prediction?'
 panel.**
 
 *"This is the explainable-AI piece. Each red bar is a feature pushing
-risk UP — for this row the model is calling out the unusual
-combination of low auth volume with non-zero flow activity. The green
-bars push risk down. This is not a SHAP approximation — it's the
-exact log-odds decomposition from LightGBM's booster, available
-through a single API call."*
+risk UP — for this row the model is flagging the combination of
+focused, low-volume authentication paired with non-zero outbound flow
+activity. The green bars push risk down. This is not a SHAP
+approximation — it's exact TreeSHAP from LightGBM's booster
+(`booster.predict(pred_contrib=True)`), surfaced through a single API
+call."*
 
 ### Step 4 — Switch to the LOW preset (the counterintuitive moment) (45 seconds)
 
 **Scroll back up to the sidebar.**
 **Click the Scenario dropdown.**
-**Pick "Demo LOW risk - busy admin host (real row, P=0.000)".**
+**Pick "Demo LOW risk - real row (P=0.072)".**
 
-*"Now contrast with this row. Same dataset. Sixty-four authentication
-events. Forty-six of them failed — a 72% failure ratio. Three
-hundred twenty-four process events. To a human, that's a five-alarm
-fire."*
+*"Now contrast with this row. Same dataset, real gold sample. Seven
+successful authentications to three different destination hosts.
+Ten process-start events spanning six unique process names. To a
+human, that looks busy — measurably more activity than the HIGH-risk
+row we just looked at."*
 
 **Click "Predict next-window risk".**
 
 **Wait for the right column to update. Point at the 'Low predicted
 risk' verdict in green.**
 
-*"The model says: low risk. Less than 1% probability. Why? Scroll
-down to the explainer."*
+*"The model says: low risk. Around 7% probability. Why? Scroll down
+to the explainer."*
 
 **Scroll down past the verdict.**
 
 *"The green bars dominate. The model has learned — from training on
-358 real red-team-positive examples in the LANL dataset — that this
-pattern of high auth volume, high failures, heavy process activity
+596 real red-team-positive examples in the LANL dataset — that this
+pattern (a handful of successful auths plus diverse process activity)
 is what an admin host or service account does, not what an attacker
 does. The real attacker pattern is the one we saw thirty seconds ago:
-stealthy, minimal, deliberately blending into the noise."*
+focused, low-volume, deliberately blending into the noise."*
 
 **Pause for half a beat.**
 
 *"That's the kind of insight a rule-based system would never give you.
-Heuristics tell you 'high failure ratio is bad.' A model trained on
-the actual data tells you 'high failure ratio is normal for admin
-hosts; absence of expected behavior is what's anomalous.'"*
+Heuristics would tell you 'more activity is more suspicious.' A model
+trained on actual attack labels tells you the opposite: routine
+diversity is benign; deliberate, narrow targeting is the attacker
+signature."*
 
 ### Step 5 — Show the MEDIUM preset briefly (20 seconds)
 
 **Click the Scenario dropdown.**
-**Pick "Demo MEDIUM risk - sparse DNS (real row, P=0.231)".**
+**Pick "Demo MEDIUM risk - real row (P=0.275)".**
 **Click "Predict next-window risk".**
 
-*"This is the middle case. The model is 23% confident — borderline.
-This is exactly the kind of prediction where threshold tuning
-matters most. Whether you raise an alert or not depends on what your
-operation values: are you more afraid of missing a real attack, or
-of overwhelming your analysts with false alarms? That's a business
-decision, not a model decision."*
+*"This is the middle case. The model is 27.5% confident — borderline.
+Look at the pattern: fifteen outbound authentication attempts hitting
+six different destination computers using two distinct user accounts,
+plus three inbound auths from two source machines. That's a textbook
+lateral-movement fingerprint — a host fanning out across the network
+with multiple identities — but the volume is low enough that it
+could also be legitimate admin work. This is exactly the kind of
+prediction where threshold tuning matters most. Whether you raise an
+alert or not depends on what your operation values: are you more
+afraid of missing a real attack, or of overwhelming your analysts
+with false alarms? That's a business decision, not a model
+decision."*
 
 ### Step 6 — Show the counterfactual recommender (20 seconds)
 
@@ -271,10 +281,67 @@ support tool.'"*
 
 *See § 4 for the full threshold-slider script.*
 
+### Step 7.5 — The Live monitor finale (60 seconds)
+
+This is the new grand finale. After the threshold-slider showcase
+ends, before you close on Architecture, take the audience to the
+Live monitor tab. It is the most visually striking moment in the
+demo and the answer to anyone who thinks this is "just a calculator."
+
+**Click the Live monitor tab.**
+
+*"One more thing. A common reaction to a dashboard like this is
+'you've built a calculator — type in numbers, get a probability.'
+Let me show you why this is a scoring engine, not a calculator."*
+
+**Click the Start stream button.**
+
+*Wait roughly two seconds while the pool is batch-scored. The spinner
+will show "Scoring pool through /batch_predict...". When it
+disappears, dots will start appearing on the chart at 1.25 events per
+second.*
+
+*"What you're watching is one hundred and twenty real gold-table rows
+being replayed through the deployed FastAPI service at roughly one
+event every 0.8 seconds. Every dot is a real HTTP call to the same
+endpoint a production SOC analyst would hit. The KPI tiles up top
+update live: events scored, alerts fired, max probability seen, mean
+probability seen."*
+
+*Let the chart run for ~10 seconds so the audience sees it filling
+out. Most dots will be at zero or around the model's 0.23 default
+for sparse rows. Then:*
+
+**Click the Inject HIGH-risk row button.**
+
+*"Now I'm splicing in the canonical attack fingerprint we identified
+in the Predict tab — same nineteen feature values, same row that
+scored at 74.5%. Watch the chart."*
+
+*A big white-bordered red dot lands at the current sequence position.
+The red **[INJECTED] ALERT** banner pops above the chart with the
+host marked `<INJECTED>` and the probability rendered live.*
+
+*"There. Big dot, threshold crossed, alert banner fires. The
+production alert path just executed against real infrastructure."*
+
+**Pause for a beat. Let people read the banner.**
+
+*"Two honest disclaimers. First, this is a streaming SIMULATOR — the
+'stream' is a recorded CSV being replayed on a Python timer, not a
+Kinesis consumer. The scoring engine is real and deployed; the
+ingest in this demo is not. Second, swapping the simulator for
+Kinesis Data Streams is a wire-format change, not a model change.
+The model, the FastAPI service, and the feature contract don't move.
+That is the architectural payoff of putting scoring behind an HTTP
+boundary."*
+
 ### Step 8 — Close on the Architecture tab (30 seconds)
 
-After the threshold-slider showcase ends, click **Architecture** at the
-top.
+After the Live monitor moment lands, click **Architecture** at the
+top. If you're tight on time, skip this and close from the Live
+monitor tab — the audience just saw the system operate, they don't
+need the diagram.
 
 *"That's the whole system. Real distributed pipeline — three AWS
 layers (S3 storage, EMR Spark transformation, EC2 serving). Four
@@ -282,7 +349,8 @@ machine-learning models trained and tracked in MLflow, winner
 promoted to Production in the Model Registry. Two explainable-AI
 endpoints — exact log-odds decomposition for the linear baseline,
 exact TreeSHAP for LightGBM. One cost-aware threshold tuner. One
-live URL the grader can hit from anywhere."*
+streaming simulator that proves the scoring engine survives sustained
+traffic. One live URL the grader can hit from anywhere."*
 
 **Pause. Make eye contact with the room.**
 
@@ -498,7 +566,7 @@ the story without needing the live URL.
 
 ---
 
-## 6. Q&A — twelve anticipated questions and answers
+## 6. Q&A — fourteen anticipated questions and answers
 
 ### Q1. "Why is precision so low (0.001)?"
 
@@ -583,9 +651,11 @@ the story without needing the live URL.
 > *"The pipeline is designed for it. S3 stores arbitrarily large
 > bronze data; EMR scales horizontally with cluster size; the API
 > is stateless and could run behind an autoscaling group; the model
-> is small enough to serve at low latency. Streaming would be the
-> next step — Kinesis into Spark Structured Streaming for live
-> scoring — listed in the write-up's future-work section."*
+> is small enough to serve at low latency. The Live monitor tab
+> already demonstrates that the scoring engine survives sustained
+> traffic — it just doesn't read from Kinesis yet. Swapping the CSV
+> replayer for a Kinesis Data Streams consumer is a wire-format
+> change, not a model change."*
 
 ### Q11. "What was the hardest part?"
 
@@ -599,14 +669,43 @@ the story without needing the live URL.
 
 ### Q12. "What would you do differently with more time?"
 
-> *"Four things, ordered by impact. One: streaming layer — Kinesis
-> into Spark Structured Streaming for live scoring. Two:
+> *"Four things, ordered by impact. One: the REAL streaming layer —
+> Kinesis into Spark Structured Streaming for live scoring, replacing
+> the simulator you just saw with actual event ingest. Two:
 > EventBridge-driven retraining schedule that retrains weekly as
 > new windows arrive. Three: distribution-aware imputation — random
 > sampling from the column's existing values instead of median
 > substitution. Four: mutual-information feature selection to prune
 > low-signal features before training. All listed in the write-up's
 > section 5."*
+
+### Q13. "Is the Live monitor real-time streaming?"
+
+> *"No, and I'm explicit about that in the UI. It is a streaming
+> SIMULATOR — the 'stream' is a recorded CSV being replayed on a
+> Python timer at roughly one event per second. The scoring engine
+> is real and deployed; the ingest in this demo is not. Every dot
+> on the chart is a real HTTP call to the same FastAPI service a
+> production SOC analyst would hit. To make it true streaming, you
+> swap `streaming_sim.load_replay_pool` for a Kinesis or Kafka
+> consumer. The model, the API, and the feature contract don't
+> change. That's the architectural payoff of putting scoring behind
+> an HTTP boundary."*
+
+### Q14. "Why didn't you build real streaming if it's that close?"
+
+> *"Scope, cost, and risk. This is a distributed-computing capstone —
+> the distributed parts are the medallion pipeline on EMR, the Spark
+> transformation, the MLflow tracking, and the containerized serving
+> layer. A Kinesis Data Stream sized for one demo costs roughly a
+> dollar an hour plus DynamoDB / S3 sink fees, and live AWS
+> infrastructure has a non-trivial blast radius during a demo. The
+> honest tradeoff was to ship the scoring engine production-grade
+> and simulate the ingest with a guarantee that the simulator and
+> the real consumer would talk to identical APIs. The simulator's
+> failure mode is 'chart stops updating'; a real Kinesis failure
+> mode is 'demo blank for 90 seconds while everyone watches.' I'd
+> rather show working software than risk a fragile live system."*
 
 ---
 

@@ -628,6 +628,69 @@ def main() -> int:
     )
     slide_composers.append((s14b, notes_s14b))
 
+    # ---------- 14c. WOW: Live monitor (streaming simulator) ------------
+    def s14c(slide):
+        add_accent_bar(slide); add_header(slide, "Wow #4 - Live monitor: scoring engine under load")
+        # Top callout
+        add_text_block(slide,
+            "Streaming SIMULATOR, not a calculator",
+            Inches(0.7), Inches(1.1), Inches(12), Inches(0.5),
+            size=20, color=ACCENT, bold=True)
+        # Left column: what the tab does
+        add_text_block(slide, "What the Live monitor tab does",
+                       Inches(0.7), Inches(1.7), Inches(6), Inches(0.4),
+                       size=15, color=NAVY, bold=True)
+        add_bullets(slide, [
+            "Replays 120 rows from the gold sample at ~1.25 events/sec",
+            "Every dot = a real HTTP call to /batch_predict on EC2",
+            "Live KPI tiles: events, alerts fired, max P, mean P",
+            "Auto-fires red alert banner when P >= adjustable threshold",
+            "Trajectory chart updates via st.fragment(run_every='0.8s')",
+            "Inject HIGH-risk button splices the canonical attack",
+            "    fingerprint into the stream on demand (hits /predict)",
+        ], Inches(0.7), Inches(2.15), Inches(6.3), Inches(3.7), size=13)
+
+        # Right column: the production path
+        add_text_block(slide, "What changes for production",
+                       Inches(7.2), Inches(1.7), Inches(6), Inches(0.4),
+                       size=15, color=NAVY, bold=True)
+        add_bullets(slide, [
+            "load_replay_pool()  -> Kinesis / Kafka consumer",
+            "st.fragment timer   -> event arrival",
+            "session_state list  -> DynamoDB / S3 alert sink",
+            "",
+            "Model artifact      UNCHANGED",
+            "FastAPI service     UNCHANGED",
+            "Feature contract    UNCHANGED",
+            "",
+            "Three rows of plumbing change.",
+            "The entire ML system stays the same.",
+            "That is the architectural payoff of putting",
+            "scoring behind an HTTP boundary.",
+        ], Inches(7.2), Inches(2.15), Inches(6.0), Inches(3.7), size=13)
+
+        # Bottom: honest disclaimer
+        add_text_block(slide, "Honest disclaimer (delivered on stage)",
+                       Inches(0.7), Inches(6.0), Inches(8), Inches(0.4),
+                       size=14, color=ACCENT, bold=True)
+        add_text_block(slide,
+            "The scoring engine is production-grade and deployed.  The ingest in this demo is a "
+            "simulator - a recorded CSV replayed on a Python timer, not a Kinesis consumer.  We say "
+            "this out loud during the demo.  Hand-wavy 'real-time' claims get caught in Q&A; honest "
+            "framing wins the rubric.",
+            Inches(0.7), Inches(6.4), Inches(12.0), Inches(1.0),
+            size=11, color=BODY)
+    notes_s14c = (
+        "This is the visual peak of the demo. Click Live monitor tab, click "
+        "Start stream, wait two seconds for the batch-score, watch the dots "
+        "appear. Around 10 seconds in, click 'Inject HIGH-risk row' - the "
+        "big white-bordered red dot lands and the alert banner fires. Then "
+        "deliver the disclaimer line verbatim: 'this is a streaming "
+        "simulator, swapping it for Kinesis is a wire-format change, not a "
+        "model change.' That sentence is what wins the rubric points."
+    )
+    slide_composers.append((s14c, notes_s14c))
+
     # ---------- 15. Hosting + test script -------------------------------
     def s15(slide):
         add_accent_bar(slide); add_header(slide, "Hosting + test script")
