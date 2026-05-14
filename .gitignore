@@ -65,3 +65,4 @@ Thumbs.db
 .claude/
 ~$*
 desktop.ini
+model_outputs/lightgbm_model/validation_test_predictions.csv

@@ -1,0 +1,22 @@
+{
+  "threshold": 0.1,
+  "true_negative": 2719797,
+  "false_positive": 57773,
+  "false_negative": 96,
+  "true_positive": 23,
+  "precision": 0.0003979514153228597,
+  "recall": 0.19327731092436976,
+  "specificity": 0.9792001641722801,
+  "false_positive_rate": 0.020799835827719913,
+  "false_negative_rate": 0.8067226890756303,
+  "f1": 0.0007942674609341275,
+  "roc_auc": 0.8380996426263776,
+  "pr_auc": 0.0016145422805882179,
+  "positive_rate": 4.2841369210159955e-05,
+  "n_rows": 2777689,
+  "n_positive": 119,
+  "n_negative": 2777570,
+  "model": "LightGBM",
+  "split": "validation",
+  "prediction_file": "C:\\Users\\markc\\Documents\\DistributedCompProject2\\LANL\\model_outputs\\lightgbm_model\\validation_test_predictions.csv"
+}

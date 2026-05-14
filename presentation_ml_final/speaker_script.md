@@ -1,5 +1,5 @@
 # Speaker Script — LANL ML Final Project Presentation
-# 12 Slides | ~50 seconds per slide | 10 minutes total
+# 14 Slides | ~45-55 seconds per slide | 11-12 minutes total
 
 ---
 
@@ -84,7 +84,33 @@
 
 ---
 
-## Slide 10 — Model Interpretation
+## Slide 10 — Winning Model Diagnostics: ROC and PR Curves
+**"How LightGBM ranks rare attack behavior"**
+
+"This slide shows the winning LightGBM model from two curve-based views. The ROC curves show global ranking ability: whether attack-like host-hours tend to receive higher scores than benign host-hours. On the held-out test set, LightGBM reaches a ROC-AUC of 0.881.
+
+The precision-recall curves are more important for this project because the positive class is extremely rare: only about 0.0043% of rows are positives. That is why the PR curve looks visually compressed near the bottom. The important comparison is not whether PR-AUC is close to 1.0, but how much better it is than the random baseline. The test PR-AUC is 0.03905 compared with a random baseline of 0.000043, which is about 909 times better than random.
+
+The conclusion is that LightGBM is not a magic attack oracle. It is a strong risk-ranking model. It moves rare red-team behavior much higher in the queue than random chance would."
+
+*[~60 sec]*
+
+---
+
+## Slide 11 — Winning Model Diagnostics: Confusion Matrices
+**"What happens at the selected threshold"**
+
+"Now this slide shows the same model at a specific operating threshold: 0.10. The confusion matrix answers a different question than ROC-AUC or PR-AUC. The curves show ranking quality across many possible thresholds. The confusion matrix shows what happens when we choose one threshold and actually classify rows as attack or no attack.
+
+On the test set, the model catches 28 of 119 attacks and misses 91. It also produces 57,535 false positives out of about 2.78 million host-hours. That sounds like a lot, and operationally it matters, because false positives become analyst workload. But it is still filtering a massive telemetry stream down to a much smaller set of high-risk rows.
+
+This is why I frame the system as SOC triage, not autonomous detection. A lower threshold catches more attacks but creates more alerts. A higher threshold reduces alert volume but misses more attacks. The threshold is a business and operational decision."
+
+*[~60 sec]*
+
+---
+
+## Slide 12 — Model Interpretation
 **"Why Did It Flag This Computer?"**
 
 "LightGBM gives us exact per-feature contributions using TreeSHAP — the model's own internal calculation, not a sampling approximation. Red bars push predicted risk up, green bars push it down. On the HIGH risk preset: the model flags a computer with 4 outbound auth events to 1 destination and 12 network flows. It looks quiet. The model says: that pattern — focused, low-noise, targeted — is the reconnaissance fingerprint. Diverse, high-volume activity reads as a normal admin host. The counterfactual recommender adds: 'reduce outbound auth count by 2 and risk drops below 20%.' That's an actionable recommendation for a security analyst."
@@ -93,7 +119,7 @@
 
 ---
 
-## Slide 11 — Threshold Tuning
+## Slide 13 — Threshold Tuning
 **"The Threshold is a Business Decision, Not a Hyperparameter"**
 
 "Scikit-learn defaults to threshold 0.5. On this dataset almost no row ever scores above 0.5, so the model appears to predict nothing. The threshold is actually a deployment knob. The system exposes a cost-optimal threshold calculator: give it the dollar cost of a false alarm and the cost of a missed attack, and it returns the threshold that minimizes total expected cost over the validation set. At cost_fp=100 and cost_fn=100,000 — a missed attack costs a thousand times a false alarm — the optimal threshold is around 0.10. That's the operationally correct cutoff. Dragging the threshold slider from 0.5 to 0.1 turns a model that looks broken into one that catches attacks."
@@ -102,7 +128,7 @@
 
 ---
 
-## Slide 12 — Limitations & Stakeholder Recommendation
+## Slide 14 — Limitations & Stakeholder Recommendation
 **"What I'd Tell a SOC Director"**
 
 "Honest limitations: the streaming ingest is simulated, not a real Kinesis consumer. The model's probabilities are good for ranking but not calibrated as true frequencies — we'd want reliability diagrams and Platt scaling before quoting percentages to a CISO. k-fold was not used, for reasons I've explained. The GenAI comparison was not completed. My recommendation: deploy LightGBM at the cost-optimal threshold, pair every alert with its SHAP explanation so analysts understand why, and use the counterfactual recommender as the first-line remediation guide. The model doesn't replace analysts — it tells them where to look and why."

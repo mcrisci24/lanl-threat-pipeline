@@ -53,7 +53,7 @@ Given a computer's behavior in the **current** one-hour window, will it show red
 **Not completed.**
 
 ## Deliverables
-- `LANL_ML_Final_Project_Presentation.pptx` — 12-slide deck
+- `LANL_ML_Final_Project_Presentation.pptx` — 14-slide deck
 - `speaker_script.md` — matched speaker notes
 - `ml_project_writeup.md` — full rubric-aligned write-up
 - `rubric_coverage_audit.md` — rubric-to-slide mapping

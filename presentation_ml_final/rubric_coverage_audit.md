@@ -60,7 +60,7 @@ Each section is 20% of the grade. Extra credit is 10%.
 
 | Requirement | Status | Where Covered |
 |---|---|---|
-| 10–15 slides | DONE | 12 slides (within range) |
+| 10–15 slides | DONE | 14 slides (within range) |
 | 10 minutes | DONE | Speaker script allocates ~50 sec/slide = 10 min total |
 | Stakeholder story | DONE | Framed as "SOC director briefing" — why it matters operationally, not academically |
 | Results clearly presented | DONE | Slides 9–10 — model leaderboard, PR AUC lift, SHAP explanations |
@@ -83,7 +83,7 @@ Each section is 20% of the grade. Extra credit is 10%.
 | 2. Literature Review | 20% | Full |
 | 3. Benchmark + Imbalanced Metrics | 20% | Full |
 | 4. ML Model + Split + Tuning + All-Set Metrics | 20% | Full (k-fold honestly explained) |
-| 5. Presentation 10–15 slides | 20% | Full (12 slides) |
+| 5. Presentation 10–15 slides | 20% | Full (14 slides) |
 | Extra Credit GenAI | 10% | Not completed — do not claim |
 
 **Expected base grade coverage: 100% of rubric items addressed.**
