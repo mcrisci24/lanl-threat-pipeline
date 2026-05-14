@@ -44,7 +44,7 @@
 
 ------------------------------------------------------------------------
 
-## Slide  6— Literature Review
+## Slide 6— Literature Review
 
 **"What's Been Done Before — and What We Did Differently"**
 
@@ -116,15 +116,13 @@ The conclusion is that LightGBM is not a magic attack oracle. It is a strong ris
 
 On the test set, the model catches 28 of 119 attacks and misses 91. It also produces 57,535 false positives out of about 2.78 million host-hours. That sounds like a lot, and operationally it matters, because false positives become analyst workload. But it is still filtering a massive telemetry stream down to a much smaller set of high-risk rows.
 
-This is why I frame the system as SOC triage, not autonomous detection.
-
-**A lower threshold catches more attacks but creates more alerts. A higher threshold reduces alert volume but misses more attacks. The threshold is a business and operational decision.**"
+This is why I frame the system as SOC triage, not autonomous detection. **A lower threshold catches more attacks but creates more alerts. A higher threshold reduces alert volume but misses more attacks. The threshold is a business and operational decision.**"
 
 *[\~60 sec]*
 
 ------------------------------------------------------------------------
 
-## Slide 12 — Model Interpretation
+## Slide 13 — Model Interpretation
 
 **"Why Did It Flag This Computer?"**
 
@@ -148,7 +146,7 @@ This is why I frame the system as SOC triage, not autonomous detection.
 
 **"What I'd Tell a SOC Director"**
 
-"Honest limitations: the streaming ingest is simulated, not a real Kinesis consumer. The model's probabilities are good for ranking but not calibrated as true frequencies — we'd want reliability diagrams and Platt scaling before quoting percentages to a CISO. k-fold was not used, for reasons I've explained. The GenAI comparison was not completed. My recommendation: deploy LightGBM at the cost-optimal threshold, pair every alert with its SHAP explanation so analysts understand why, and use the counterfactual recommender as the first-line remediation guide. The model doesn't replace analysts — it tells them where to look and why."
+"Honest limitations: the streaming ingest is simulated, not a real Kinesis consumer. The model's probabilities are good for ranking but not calibrated as true frequencies — we'd want reliability diagrams and Platt scaling before quoting percentages. “The model’s biggest limitation is that this is a rare-event problem with only 596 positives. I used a stratified 60/20/20 split because a strict chronological split left validation and test with too few positives to evaluate, but that means the evaluation is not a perfect forward-in-time deployment simulation. LightGBM performs much better than random and much better than logistic regression, especially on PR-AUC, but the absolute PR-AUC is still low because the positive rate is only about 0.0043%. The confusion matrix also shows that at threshold 0.10, the model catches some attacks but misses many and still creates analyst workload. So I would not frame this as an autonomous attack detector. I would frame it as a SOC triage model that ranks risky host-hours for analyst review. Future work would include external validation, probability calibration, stronger temporal validation, sequence/graph features, and threshold tuning based on actual SOC capacity.”
 
 *[\~55 sec]*
 
