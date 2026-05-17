@@ -1,4 +1,4 @@
-# LANL Threat Prediction Pipeline — Project 2 Write-Up
+# LANL Threat Prediction Pipeline — Project 2 Final Write-Up
 
 **Team:** Mark Crisci   **Live URL:** https://lanlthreat.streamlit.app   **Repo:** https://github.com/mcrisci24/lanl-threat-pipeline
 
