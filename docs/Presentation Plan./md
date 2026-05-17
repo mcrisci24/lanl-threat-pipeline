@@ -1,8 +1,6 @@
 # LANL Threat Prediction Pipeline — Presentation Deck and Speaker Script
 
-> 12 slides, ~10 minutes spoken, plus a Q&A appendix.
-> Each slide block has: **slide content** (what to put on the slide),
-> **visual** (what to draw), and **speaker notes** (what to say).
+
 
 ---
 
@@ -18,13 +16,13 @@
 - Subtle network-graph or terminal-style background.
 - Live URL and GitHub URL at the bottom of the slide for the grader.
 
-**Speaker notes**
-"This is an end-to-end distributed data pipeline built on the Los Alamos
+** notes**
+This is an end-to-end distributed data pipeline built on the Los Alamos
 National Laboratory enterprise telemetry dataset. The goal is a hosted
 web application that answers a real, time-aware predictive question - and
 the whole thing is wired together with S3, EMR, MLflow, FastAPI, and
 Streamlit on AWS. I'll walk you through the question, the architecture,
-the model, and the live app."
+the model, and the live app.
 
 ---
 
@@ -42,13 +40,13 @@ the model, and the live app."
 - Label = red-team activity in t+1.
 - Arrow from t -> t+1 with text "predict ahead, not describe the present".
 
-**Speaker notes**
-"The framing is the most important decision in the whole project. We're
+**notes**
+The framing is the most important decision in the whole project. We're
 not labeling the current window - that would basically be a description.
 We're predicting the *next* window. That's an actual operational question
 a SOC analyst would care about: 'is this host about to be a problem?'
 And it turns out you have to design carefully to make sure the model
-doesn't accidentally see the answer."
+doesn't accidentally see the answer.
 
 ---
 
