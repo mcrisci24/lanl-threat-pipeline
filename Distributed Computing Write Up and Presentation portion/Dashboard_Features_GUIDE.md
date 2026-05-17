@@ -1,4 +1,4 @@
-# Dashboard Feature Guide
+# Dashboard Features
 
 > Companion to the live demo. Read once before the presentation; flip
 > back here in Q&A if anyone asks "what is that button doing?"
