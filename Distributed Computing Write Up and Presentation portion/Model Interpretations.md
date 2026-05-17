@@ -1,4 +1,4 @@
-# Model Interpretation Guide
+# Model Interpretations
 
 > Cheat sheet for what every number on the dashboard means and how to
 > explain it on stage in one sentence.
