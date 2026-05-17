@@ -1,4 +1,4 @@
-# LANL Threat Prediction Pipeline — Presentation Deck and Speaker Script
+# LANL Threat Prediction Pipeline — Presentation Deck and Script
 
 
 
@@ -62,7 +62,7 @@ doesn't accidentally see the answer.
 - Five stacked file icons labeled with each source, sizes next to them.
 - An arrow into a single S3 bucket.
 
-**Speaker notes**
+**notes**
 "LANL's enterprise telemetry is five separate event streams - auth events,
 network flows, DNS lookups, process events, and the ground-truth red-team
 labels. They're big, they're messy, and crucially they all describe
@@ -82,7 +82,7 @@ on a flat table' project - the data engineering is the project."
 - Use the ASCII pipeline from `docs/ARCHITECTURE.md` rendered as a polished
   diagram. Highlight in green the three boxes that are "distributed".
 
-**Speaker notes**
+**notes**
 "Raw files land in S3. EMR PySpark transforms bronze to silver, then silver
 to gold. The gold table feeds a scikit-learn training job that tracks every
 run in MLflow. The winning model is served from FastAPI on EC2 and the UI
@@ -101,7 +101,7 @@ we have three: S3 for storage, EMR for transformation, and EC2 for serving."
 **Visual**
 - Three horizontal cards in bronze / silver / gold colors with the metaphors.
 
-**Speaker notes**
+**notes**
 "Medallion can sound abstract, so I think of it as a refinery. Bronze is
 the receiving dock - we don't touch the data, we just preserve it. Silver
 is where we clean and type each stream but keep its original row grain.
@@ -117,7 +117,7 @@ one time window. That's the natural unit of risk."
 - Current-window red-team columns are dropped before training
 - Training script *asserts* no leakage column survived
 
-**Visual**
+**visual**
 - Code snippet:
   ```python
   W = Window.partitionBy("computer").orderBy("time_window")
@@ -125,7 +125,7 @@ one time window. That's the natural unit of risk."
   ```
 - Bullet: "Anti-cheating defense in code, not just in assumptions."
 
-**Speaker notes**
+**notes**
 "This is the decision I'd defend hardest. Our first model accidentally let
 red-team counts leak through, and validation F1 was almost perfect - which
 is the universal sign of leakage. So we rebuilt the target as the *next*
@@ -147,7 +147,7 @@ That dropped the metrics to honest numbers."
 **Visual**
 - Side-by-side metric table for LR vs RF with the test PR AUC highlighted.
 
-**Speaker notes**
+**notes**
 "We deliberately picked a benchmark and a stronger model. Both are wrapped
 in a scikit-learn Pipeline with imputation and scaling so retraining is one
 function call. Every run goes to MLflow - the metrics, the parameters, the
@@ -171,7 +171,7 @@ is rare; a model that always predicts benign could be 99 % accurate and
 - Screenshot of the `/docs` Swagger UI.
 - A small JSON example request and response side by side.
 
-**Speaker notes**
+**notes**
 "FastAPI gives us a real, introspectable API for free. /health isn't just
 'the process is up' - it confirms the model loaded. /model_info exposes
 the metrics so the UI can show how good the model is. /predict accepts
@@ -193,7 +193,7 @@ replays."
 - Screenshot of the Predict tab with a preset loaded and the verdict card
   showing.
 
-**Speaker notes**
+**notes**
 "The UI is built for someone who has never heard of LANL. There are preset
 scenarios in the sidebar - 'Quiet workstation', 'Failed-logon storm',
 'Lateral movement' - so the demo never starts on a blank form. The verdict
@@ -215,7 +215,7 @@ you defend the pipeline without leaving the app."
 **Visual**
 - Terminal screenshot showing the test script running and printing PASS.
 
-**Speaker notes**
+**notes**
 "The graded URL goes through the live FastAPI service. test_project.py at
 the repo root is what the grader runs - it hits every endpoint, validates
 the response shapes, accepts both the modern and the legacy payload
@@ -242,7 +242,7 @@ failure."
   | Databricks Model Serving      | FastAPI on EC2             |
   | Databricks MLflow             | MLflow (tracking+registry) |
 
-**Speaker notes**
+**notes**
 "We started on Databricks - it was the path of least resistance from class.
 But the free tier didn't have writable managed storage for a dataset this
 size. Instead of breaking the architecture, we kept the design and moved
@@ -263,7 +263,7 @@ didn't."
 **Visual**
 - A short bullet list, clean layout.
 
-**Speaker notes**
+**notes**
 "Two honest caveats. One: this is one enterprise's telemetry, so the model
 might not transfer cleanly to another network. Two: time is relative
 seconds, not real clock time, so we can't add diurnal features yet. The
@@ -273,7 +273,7 @@ EventBridge schedule that re-trains the model weekly."
 
 ---
 
-## APPENDIX — Q&A talking points
+## potential Q&A talking points to prepare for...
 
 - *"Why predict the next window instead of the current one?"*
   Predicting the current window mixes up describing and predicting -
